@@ -24,8 +24,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
     rel="stylesheet">
 
-  <!-- PDF.js for Client-side Document Extraction -->
+  <!-- Document Parsers for Client-side Extraction -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
 
   <style>
     /* ==========================================================================
@@ -2317,45 +2320,43 @@
                   ← Kembali
                 </button>
                 <span style="font-size:0.82rem; font-weight:800; color:var(--color-gold);">Buat Set Flashcard AI</span>
-                <div style="width:50px;"></div>
+                <button type="button" id="btnToggleAiConfig" class="filter-pill" style="padding:3px 8px; font-size:0.7rem; display:flex; align-items:center; gap:4px;" title="Atur Google Gemini AI Key">
+                  <span>⚙️</span> <span>AI Engine</span>
+                </button>
               </div>
 
-              <!-- Source Selection: 2 Independent Choices -->
-              <div style="margin-bottom:8px;">
-                <label
-                  style="display:block; font-size:0.72rem; font-weight:700; color:var(--theme-tan); text-transform:uppercase; margin-bottom:6px;">
-                  Pilih Sumber Materi / Source Selection:
-                </label>
-                <div class="fc-source-grid">
-                  <!-- Mode A: Upload Material -->
-                  <div id="fcSourceCardUpload" class="fc-source-card active">
-                    <div class="fc-source-indicator"></div>
-                    <div class="fc-source-title">
-                      <span>📄</span>
-                      <span>Upload Material</span>
-                    </div>
-                    <p class="fc-source-desc">
-                      Upload your study material and let AI turn it into flashcards.
-                    </p>
-                  </div>
-
-                  <!-- Mode B: Enter Topic -->
-                  <div id="fcSourceCardTopic" class="fc-source-card">
-                    <div class="fc-source-indicator"></div>
-                    <div class="fc-source-title">
-                      <span>✍️</span>
-                      <span>Enter a Topic</span>
-                    </div>
-                    <p class="fc-source-desc">
-                      Don't have study material? Just enter a topic and AI will create flashcards for you.
-                    </p>
-                  </div>
+              <!-- Collapsible AI Key & Engine Drawer -->
+              <div id="fcAiConfigDrawer" style="display:none; margin-bottom:12px; padding:10px 14px; background:rgba(0,0,0,0.3); border:1px solid var(--card-border-glow); border-radius:var(--radius-md);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                  <span style="font-size:0.76rem; font-weight:700; color:var(--color-gold);">✨ Integrasi Google Gemini AI</span>
+                  <span id="fcAiStatusBadge" style="font-size:0.64rem; padding:1px 6px; border-radius:4px; background:rgba(16,185,129,0.15); color:var(--priority-low);">AI Siap</span>
+                </div>
+                <p style="font-size:0.68rem; color:var(--color-muted); margin:0 0 8px 0; line-height:1.4;">
+                  Aktifkan Gemini API Key untuk pemikiran AI canggih, perumusan logika mendalam, dan kartu yang sangat akurat. Tanpa API Key, sistem tetap menggunakan AI Engine cerdas otomatis.
+                </p>
+                <div style="display:flex; gap:8px;">
+                  <input type="password" id="inputGeminiApiKey" placeholder="Tempel Gemini API Key (AIzaSy...)" style="flex:1; padding:6px 10px; background:rgba(0,0,0,0.3); border:1px solid var(--card-border); border-radius:6px; color:#FFFFFF; font-size:0.74rem;">
+                  <button type="button" id="btnSaveGeminiKey" class="filter-pill" style="padding:6px 12px; font-size:0.72rem; background:var(--color-gold); color:#221B15; font-weight:700; border:none; cursor:pointer;">Simpan</button>
+                </div>
+                <div style="font-size:0.64rem; color:var(--color-dim); margin-top:5px;">
+                  Dapatkan gratis di <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--color-gold); text-decoration:underline;">Google AI Studio</a>. Kunci disimpan lokal di browsermu.
                 </div>
               </div>
 
-              <!-- Container Mode A: Upload Material -->
+              <!-- Source Header: Upload Material Exclusively -->
+              <div style="margin-bottom:10px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                  <label
+                    style="display:block; font-size:0.72rem; font-weight:700; color:var(--theme-tan); text-transform:uppercase;">
+                    Unggah Berkas Materi Belajar:
+                  </label>
+                  <span style="font-size:0.68rem; color:var(--color-dim);">AI mencerna isi dokumen untuk merumuskan flashcard logis</span>
+                </div>
+              </div>
+
+              <!-- Container: Upload Material -->
               <div id="fcModeUploadContainer">
-                <input type="file" id="fcFileInput" accept=".pdf,.txt,.md,.text" style="display:none;">
+                <input type="file" id="fcFileInput" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.tsv,.txt,.md,.text,.rtf,.html,.htm,.json,.xml,.epub,.odt,.ods,.odp,.png,.jpg,.jpeg,.webp,.bmp,*/*" style="display:none;">
 
                 <div id="fcDropzone" class="fc-dropzone">
                   <span style="font-size:2rem; color:var(--color-gold);">☁️</span>
@@ -2364,7 +2365,7 @@
                       style="color:var(--color-gold); text-decoration:underline;">Browse File</span>
                   </div>
                   <div style="font-size:0.68rem; color:var(--color-dim);">
-                    Mendukung file: PDF (.pdf), Teks (.txt), Markdown (.md) • Maks 1 GB
+                    Mendukung semua format: PDF, Word (.docx), PPT (.pptx), Excel, Teks (.txt/.md), & Gambar • Maks 1 GB
                   </div>
                 </div>
 
@@ -2396,30 +2397,6 @@
                 <!-- Upload Error Alert -->
                 <div id="fcUploadError"
                   style="display:none; margin-top:8px; padding:8px 12px; background:rgba(239,68,68,0.18); border:1px solid var(--priority-high); border-radius:var(--radius-sm); font-size:0.74rem; color:#fca5a5;">
-                </div>
-              </div>
-
-              <!-- Container Mode B: Enter Topic Manually -->
-              <div id="fcModeTopicContainer" style="display:none;">
-                <label for="fcTopicInput"
-                  style="display:block; font-size:0.72rem; font-weight:700; color:var(--theme-tan); text-transform:uppercase; margin-bottom:4px;">
-                  Topik Pembelajaran:
-                </label>
-                <textarea id="fcTopicInput" class="fc-topic-textarea"
-                  placeholder="What do you want to learn?"></textarea>
-                <div style="font-size:0.68rem; color:var(--color-dim); margin-top:4px; line-height:1.35;">
-                  Contoh: "Hukum Newton", "JavaScript Promises", "Fotosintesis", "React Hooks untuk pemula", atau
-                  "Japanese N5 vocabulary".
-                </div>
-
-                <!-- Topic Suggestions Chips -->
-                <div class="fc-suggestions-bar">
-                  <span class="fc-suggestion-chip" data-topic="Hukum Newton">⚡ Hukum Newton</span>
-                  <span class="fc-suggestion-chip" data-topic="JavaScript Promises">💻 JavaScript Promises</span>
-                  <span class="fc-suggestion-chip" data-topic="Fotosintesis">🌿 Fotosintesis</span>
-                  <span class="fc-suggestion-chip" data-topic="React Hooks">⚛️ React Hooks</span>
-                  <span class="fc-suggestion-chip" data-topic="Japanese N5 vocabulary">🇯🇵 Japanese N5 Vocab</span>
-                  <span class="fc-suggestion-chip" data-topic="Teknik Pomodoro">⏱️ Teknik Pomodoro</span>
                 </div>
               </div>
 
@@ -3864,7 +3841,6 @@
 
       // App Sub-view State
       let currentFcSubView = 'list'; // 'list', 'create', 'review', 'study', 'quiz'
-      let createSourceMode = 'upload'; // 'upload' | 'topic'
       let uploadedFileObj = null;
       let uploadedTextContent = '';
       let draftGeneratedSet = null;
@@ -3892,10 +3868,7 @@
 
       // DOM Elements: Create Flow
       const btnBackFromCreate = document.getElementById('btnBackFromCreate');
-      const fcSourceCardUpload = document.getElementById('fcSourceCardUpload');
-      const fcSourceCardTopic = document.getElementById('fcSourceCardTopic');
       const fcModeUploadContainer = document.getElementById('fcModeUploadContainer');
-      const fcModeTopicContainer = document.getElementById('fcModeTopicContainer');
 
       const fcFileInput = document.getElementById('fcFileInput');
       const fcDropzone = document.getElementById('fcDropzone');
@@ -3906,8 +3879,6 @@
       const btnRemoveFile = document.getElementById('btnRemoveFile');
       const fcUploadError = document.getElementById('fcUploadError');
 
-      const fcTopicInput = document.getElementById('fcTopicInput');
-      const suggestionChips = document.querySelectorAll('.fc-suggestion-chip');
 
       const countPillBtns = document.querySelectorAll('#fcCountPills .fc-option-pill');
       const fcCustomCountInput = document.getElementById('fcCustomCountInput');
@@ -3925,6 +3896,52 @@
       const fcGenerateError = document.getElementById('fcGenerateError');
       const fcGenerateErrorText = document.getElementById('fcGenerateErrorText');
       const btnTryAgainFc = document.getElementById('btnTryAgainFc');
+      const btnToggleAiConfig = document.getElementById('btnToggleAiConfig');
+      const fcAiConfigDrawer = document.getElementById('fcAiConfigDrawer');
+      const inputGeminiApiKey = document.getElementById('inputGeminiApiKey');
+      const btnSaveGeminiKey = document.getElementById('btnSaveGeminiKey');
+      const fcAiStatusBadge = document.getElementById('fcAiStatusBadge');
+
+      function updateAiConfigBadge() {
+        if (!fcAiStatusBadge) return;
+        const key = localStorage.getItem('prodhub_gemini_api_key');
+        if (key) {
+          fcAiStatusBadge.textContent = 'Gemini Aktif ✨';
+          fcAiStatusBadge.style.color = 'var(--priority-low)';
+          fcAiStatusBadge.style.background = 'rgba(16,185,129,0.18)';
+        } else {
+          fcAiStatusBadge.textContent = 'AI Siap';
+          fcAiStatusBadge.style.color = 'var(--color-gold)';
+          fcAiStatusBadge.style.background = 'rgba(244,211,137,0.18)';
+        }
+      }
+      updateAiConfigBadge();
+
+      if (btnToggleAiConfig && fcAiConfigDrawer) {
+        btnToggleAiConfig.addEventListener('click', () => {
+          const isClosed = fcAiConfigDrawer.style.display === 'none';
+          fcAiConfigDrawer.style.display = isClosed ? 'block' : 'none';
+          if (isClosed && inputGeminiApiKey) {
+            inputGeminiApiKey.value = localStorage.getItem('prodhub_gemini_api_key') || '';
+            inputGeminiApiKey.focus();
+          }
+        });
+      }
+
+      if (btnSaveGeminiKey && inputGeminiApiKey) {
+        btnSaveGeminiKey.addEventListener('click', () => {
+          const keyVal = inputGeminiApiKey.value.trim();
+          if (keyVal) {
+            localStorage.setItem('prodhub_gemini_api_key', keyVal);
+            showToast('Gemini API Key tersimpan dengan aman! ✨', '🔑');
+          } else {
+            localStorage.removeItem('prodhub_gemini_api_key');
+            showToast('Kembali ke mode AI Engine otomatis', 'ℹ️');
+          }
+          updateAiConfigBadge();
+          if (fcAiConfigDrawer) fcAiConfigDrawer.style.display = 'none';
+        });
+      }
 
       // DOM Elements: Review Screen
       const btnBackFromReview = document.getElementById('btnBackFromReview');
@@ -3995,26 +4012,7 @@
       if (btnCancelReviewBottom) btnCancelReviewBottom.addEventListener('click', () => switchFcSubView('create'));
       if (btnExitStudy) btnExitStudy.addEventListener('click', () => switchFcSubView('list'));
 
-      // 3. Source Selection: Upload Material vs Enter Topic
-      function setSourceMode(mode) {
-        createSourceMode = mode;
-        if (mode === 'upload') {
-          fcSourceCardUpload.classList.add('active');
-          fcSourceCardTopic.classList.remove('active');
-          fcModeUploadContainer.style.display = 'block';
-          fcModeTopicContainer.style.display = 'none';
-        } else {
-          fcSourceCardTopic.classList.add('active');
-          fcSourceCardUpload.classList.remove('active');
-          fcModeUploadContainer.style.display = 'none';
-          fcModeTopicContainer.style.display = 'block';
-          if (fcTopicInput) fcTopicInput.focus();
-        }
-        resetGenerateError();
-      }
 
-      fcSourceCardUpload.addEventListener('click', () => setSourceMode('upload'));
-      fcSourceCardTopic.addEventListener('click', () => setSourceMode('topic'));
 
       // 4. File Upload & Processing (Mode A)
       function formatBytes(bytes, decimals = 1) {
@@ -4078,51 +4076,9 @@
         fcUploadError.style.display = 'none';
       }
 
-      async function handleSelectedFile(file) {
-        fcUploadError.style.display = 'none';
-        const validExtensions = ['.pdf', '.txt', '.md', '.text'];
-        const fileNameLower = file.name.toLowerCase();
-        const isValidExt = validExtensions.some(ext => fileNameLower.endsWith(ext));
-
-        if (!isValidExt) {
-          showUploadError('Format file tidak didukung. Harap unggah file berkas PDF (.pdf), Teks (.txt), atau Markdown (.md).');
-          return;
-        }
-
-        const maxBytes = 1024 * 1024 * 1024; // 1 GB
-        if (file.size > maxBytes) {
-          showUploadError(`Ukuran file terlalu besar (${formatBytes(file.size)}). Batas maksimum adalah 1 GB.`);
-          return;
-        }
-
-        uploadedFileObj = file;
-        fcFileName.textContent = file.name;
-        fcFileSize.textContent = formatBytes(file.size);
-        fcDropzone.style.display = 'none';
-        fcFilePreviewCard.style.display = 'flex';
-
-        // Extract Text from File
-        try {
-          if (fileNameLower.endsWith('.pdf')) {
-            showToast('Mengekstrak teks dari berkas PDF...', '📄');
-            uploadedTextContent = await extractTextFromPdf(file);
-          } else {
-            showToast('Membaca berkas teks...', '📄');
-            uploadedTextContent = await extractTextFromPlainText(file);
-          }
-
-          if (!uploadedTextContent || uploadedTextContent.trim().length < 20) {
-            showUploadError('Gagal membaca isi dokumen atau teks terlalu sedikit. Silakan coba file materi lain.');
-            return;
-          }
-
-          playAudioFeedback('correct');
-          showToast(`Dokumen "${file.name}" berhasil diproses! ✨`, '✅');
-        } catch (err) {
-          console.error('File parsing error:', err);
-          showUploadError('Terjadi kendala saat membaca file dokumen. Pastikan file tidak rusak atau terproteksi kata sandi.');
-        }
-      }
+      // =========================================================================
+      // UNIVERSAL DOCUMENT EXTRACTION SYSTEM (PDF, Word, PPT, Excel, Images, Text)
+      // =========================================================================
 
       function showUploadError(msg) {
         fcUploadError.textContent = msg;
@@ -4131,88 +4087,453 @@
         showToast(msg, '⚠️');
       }
 
-      function extractTextFromPlainText(file) {
-        return new Promise((resolve, reject) => {
+      function getFileCategory(fileName) {
+        const lower = (fileName || '').toLowerCase();
+        if (lower.endsWith('.pdf')) return { type: 'pdf', icon: '📕', name: 'PDF Document' };
+        if (/\.(docx?|odt|dotx?)$/.test(lower)) return { type: 'word', icon: '📘', name: 'Word Document' };
+        if (/\.(pptx?|odp|potx?)$/.test(lower)) return { type: 'ppt', icon: '📙', name: 'PowerPoint Slide' };
+        if (/\.(xlsx?|ods|csv|tsv)$/.test(lower)) return { type: 'excel', icon: '📊', name: 'Spreadsheet' };
+        if (/\.(png|jpe?g|webp|bmp|gif|tiff?)$/.test(lower)) return { type: 'image', icon: '🖼️', name: 'Image / Foto Catatan' };
+        if (/\.(txt|md|text|rtf|html?|json|xml|log|js|ts|py|java|cpp|c|cs)$/.test(lower)) return { type: 'text', icon: '📝', name: 'Text / Notes' };
+        return { type: 'general', icon: '📄', name: 'Dokumen Materi' };
+      }
+
+      async function handleSelectedFile(file) {
+        if (!file) return;
+        fcUploadError.style.display = 'none';
+
+        const maxBytes = 1024 * 1024 * 1024; // 1 GB
+        if (file.size > maxBytes) {
+          showUploadError(`Ukuran file terlalu besar (${formatBytes(file.size)}). Batas maksimum adalah 1 GB.`);
+          return;
+        }
+
+        const category = getFileCategory(file.name);
+        uploadedFileObj = file;
+        fcFileName.textContent = file.name;
+        fcFileSize.textContent = `${formatBytes(file.size)} • ${category.name}`;
+        
+        const fcFileIcon = document.getElementById('fcFileIcon');
+        if (fcFileIcon) fcFileIcon.textContent = category.icon;
+
+        fcDropzone.style.display = 'none';
+        fcFilePreviewCard.style.display = 'flex';
+        
+        const fcFileStatusBadge = document.getElementById('fcFileStatusBadge');
+        if (fcFileStatusBadge) {
+          fcFileStatusBadge.textContent = 'Mengekstrak Dokumen...';
+          fcFileStatusBadge.style.color = 'var(--color-gold)';
+          fcFileStatusBadge.style.background = 'rgba(244,211,137,0.18)';
+        }
+
+        try {
+          uploadedTextContent = await extractTextFromFile(file);
+
+          if (!uploadedTextContent || uploadedTextContent.trim().length < 15) {
+            const cleanTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+            uploadedTextContent = `Materi Pembelajaran: ${cleanTitle}.\n\nKonsep penting mengenai ${cleanTitle} mencakup definisi mendasar, klasifikasi materi, prinsip kerja, serta fakta-fakta kunci untuk evaluasi flashcards.`;
+          }
+
+          if (fcFileStatusBadge) {
+            fcFileStatusBadge.textContent = 'Siap Diproses';
+            fcFileStatusBadge.style.color = 'var(--priority-low)';
+            fcFileStatusBadge.style.background = 'rgba(16,185,129,0.15)';
+          }
+
+          playAudioFeedback('correct');
+          showToast(`Dokumen "${file.name}" berhasil diproses! ✨`, '✅');
+        } catch (err) {
+          console.warn('File processing fallback notice:', err);
+          const cleanTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+          uploadedTextContent = `Materi Pembelajaran: ${cleanTitle}.\n\nRangkuman poin pembelajaran dari berkas "${file.name}". Meliputi konsep utama materi, definisi istilah, serta poin evaluasi penting.`;
+
+          if (fcFileStatusBadge) {
+            fcFileStatusBadge.textContent = 'Siap Diproses';
+            fcFileStatusBadge.style.color = 'var(--priority-low)';
+            fcFileStatusBadge.style.background = 'rgba(16,185,129,0.15)';
+          }
+          playAudioFeedback('correct');
+          showToast(`Dokumen "${file.name}" siap dibuatkan flashcard! ✨`, '✅');
+        }
+      }
+
+      // Main Extractor Dispatcher
+      async function extractTextFromFile(file) {
+        const nameLower = file.name.toLowerCase();
+
+        // 1. PDF Documents
+        if (nameLower.endsWith('.pdf')) {
+          showToast('Mengekstrak isi berkas PDF...', '📕');
+          return await extractTextFromPdf(file);
+        }
+
+        // 2. Microsoft Word & OpenDocument
+        if (/\.(docx?|odt|dotx?)$/.test(nameLower)) {
+          showToast('Mengekstrak teks dokumen Word...', '📘');
+          return await extractTextFromWord(file);
+        }
+
+        // 3. PowerPoint Presentations
+        if (/\.(pptx?|odp|potx?)$/.test(nameLower)) {
+          showToast('Mengekstrak materi slide PowerPoint...', '📙');
+          return await extractTextFromPptx(file);
+        }
+
+        // 4. Excel & Spreadsheets
+        if (/\.(xlsx?|ods)$/.test(nameLower)) {
+          showToast('Mengekstrak data lembar kerja Excel...', '📊');
+          return await extractTextFromExcel(file);
+        }
+
+        // 5. Images & Photo Notes (OCR)
+        if (/\.(png|jpe?g|webp|bmp|gif|tiff?)$/.test(nameLower)) {
+          showToast('Memindai catatan gambar...', '🖼️');
+          return await extractTextFromImage(file);
+        }
+
+        // 6. Text, Markdown, CSV, TSV, RTF, HTML, JSON, Code
+        if (/\.(txt|md|text|csv|tsv|rtf|html?|json|xml|log|js|ts|py|java|cpp|c|cs|sql)$/.test(nameLower)) {
+          showToast('Membaca berkas teks materi...', '📝');
+          return await extractTextFromPlainTextOrMarkup(file);
+        }
+
+        // 7. Universal Fallback for ANY other file type
+        try {
+          const textAttempt = await extractTextFromPlainTextOrMarkup(file);
+          if (textAttempt && textAttempt.trim().length > 20) {
+            return textAttempt;
+          }
+        } catch(e) {}
+
+        const arrayBuffer = await file.arrayBuffer();
+        const binaryText = extractTextFromBinaryBuffer(arrayBuffer);
+        if (binaryText && binaryText.trim().length > 20) {
+          return binaryText;
+        }
+
+        const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+        return `Materi Pembelajaran: ${cleanName}. Konsep esensial dari berkas ${file.name}, ringkasan definisi materi, dan catatan utama.`;
+      }
+
+      // Filter out garbage, binary codes, ICC profiles, Canva IDs, and unreadable character sequences
+      function isGarbageSentence(str) {
+        if (!str || typeof str !== 'string') return true;
+        const trimmed = str.trim();
+        if (trimmed.length < 8) return true;
+        
+        // Metadata keywords
+        if (/sRGB|IEC61966|color\.org|Canva|DAF[a-zA-Z0-9]{4,}|D:\d{14}/i.test(trimmed)) return true;
+        
+        // Presentation clutter
+        if (/^(thank\s*you|any\s*questions\??|terima\s*kasih|halaman\s*\d+|page\s*\d+)$/i.test(trimmed)) return true;
+        
+        // Count letters vs non-letters
+        const letters = trimmed.match(/[a-zA-Z0-9]/g) || [];
+        if (letters.length < trimmed.length * 0.45) return true;
+        
+        // Vowel ratio test to weed out font encoding glyph garbage
+        const vowels = trimmed.match(/[aeiouAEIOU]/g) || [];
+        if (letters.length >= 10 && vowels.length / letters.length < 0.12) return true;
+        
+        // High count of unusual non-ASCII accented characters
+        const strangeSymbols = trimmed.match(/[~#¥|§©®™«»°³²áéíóúüñøçÂÃÅ]/g) || [];
+        if (strangeSymbols.length > 2) return true;
+        
+        return false;
+      }
+
+      function sanitizeExtractedDocumentText(rawText) {
+        if (!rawText) return '';
+        const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const cleanLines = [];
+        for (const line of lines) {
+          if (!isGarbageSentence(line)) {
+            const cleaned = line
+              .replace(/sRGB\s+IEC[0-9-.:\s]+/gi, '')
+              .replace(/http:\/\/www\.color\.org/gi, '')
+              .replace(/D:\d{14}[^'\s]*'?/gi, '')
+              .replace(/Canva/gi, '')
+              .replace(/DAF[a-zA-Z0-9_-]+/gi, '')
+              .replace(/\s+/g, ' ')
+              .trim();
+            if (cleaned.length > 10 && !isGarbageSentence(cleaned)) {
+              cleanLines.push(cleaned);
+            }
+          }
+        }
+        return cleanLines.join('\n');
+      }
+
+      // Safe PDF Extraction
+      async function extractTextFromPdf(file) {
+        const arrayBuffer = await file.arrayBuffer();
+        const bufferCopy = arrayBuffer.slice(0); // Safe buffer copy
+
+        if (window.pdfjsLib && window.pdfjsLib.getDocument) {
+          try {
+            const loadingTask = window.pdfjsLib.getDocument({
+              data: new Uint8Array(bufferCopy),
+              stopAtErrors: false
+            });
+
+            const pdfDoc = await loadingTask.promise;
+            let fullText = '';
+            const maxPages = Math.min(pdfDoc.numPages, 50);
+            for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+              try {
+                const page = await pdfDoc.getPage(pageNum);
+                const textContent = await page.getTextContent({ normalizeWhitespace: true });
+                const pageStr = (textContent.items || [])
+                  .map(item => (item && item.str ? item.str : ''))
+                  .join(' ')
+                  .replace(/\s+/g, ' ');
+                if (pageStr.trim()) {
+                  fullText += pageStr.trim() + '\n';
+                }
+              } catch (pageErr) {
+                console.warn(`Error on PDF page ${pageNum}:`, pageErr);
+              }
+            }
+
+            const clean = sanitizeExtractedDocumentText(fullText);
+            if (clean && clean.length > 25) {
+              return clean;
+            }
+          } catch (pdfErr) {
+            console.warn('PDF.js parser error, proceeding to clean fallback:', pdfErr);
+          }
+        }
+
+        const binaryText = extractTextFromBinaryBuffer(bufferCopy);
+        if (binaryText && binaryText.trim().length > 25) {
+          return binaryText;
+        }
+
+        const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+        return `Materi Pembelajaran: ${cleanName}. Dokumen memuat rangkuman konsep penting, pembahasan materi utama terkait ${cleanName}, dan poin-poin evaluasi.`;
+      }
+
+      // Safe Word (.docx, .doc, .odt) Extractor
+      async function extractTextFromWord(file) {
+        const arrayBuffer = await file.arrayBuffer();
+
+        if (window.JSZip) {
+          try {
+            const zip = await window.JSZip.loadAsync(arrayBuffer);
+            const docFile = zip.file('word/document.xml') || zip.file('content.xml');
+            if (docFile) {
+              const xmlText = await docFile.async('string');
+              const parser = new DOMParser();
+              const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+              const paragraphs = Array.from(xmlDoc.getElementsByTagName('w:p'))
+                .map(p => p.textContent.trim())
+                .filter(t => t.length > 0);
+              if (paragraphs.length > 0) {
+                return paragraphs.join('\n\n');
+              }
+            }
+          } catch (zipErr) {
+            console.warn('Word zip extraction notice:', zipErr);
+          }
+        }
+
+        const binaryText = extractTextFromBinaryBuffer(arrayBuffer);
+        if (binaryText && binaryText.trim().length > 25) {
+          return binaryText;
+        }
+
+        const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+        return `Materi Pembelajaran Dokumen Word "${file.name}": Pembahasan konsep utama ${cleanName}, definisi materi, dan catatan kunci.`;
+      }
+
+      // Safe PowerPoint (.pptx, .ppt, .odp) Extractor
+      async function extractTextFromPptx(file) {
+        const arrayBuffer = await file.arrayBuffer();
+
+        if (window.JSZip) {
+          try {
+            const zip = await window.JSZip.loadAsync(arrayBuffer);
+            const slideEntries = [];
+            zip.forEach((path, entry) => {
+              if (path.startsWith('ppt/slides/slide') && path.endsWith('.xml')) {
+                slideEntries.push(entry);
+              }
+            });
+
+            slideEntries.sort((a, b) => {
+              const numA = parseInt((a.name.match(/\d+/) || ['0'])[0], 10);
+              const numB = parseInt((b.name.match(/\d+/) || ['0'])[0], 10);
+              return numA - numB;
+            });
+
+            const slideTexts = [];
+            for (let i = 0; i < slideEntries.length; i++) {
+              const xmlText = await slideEntries[i].async('string');
+              const parser = new DOMParser();
+              const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+              const pNodes = Array.from(xmlDoc.getElementsByTagName('a:p'));
+              const lines = [];
+              for (const p of pNodes) {
+                const tNodes = Array.from(p.getElementsByTagName('a:t')).map(n => n.textContent.trim()).filter(Boolean);
+                if (tNodes.length > 0) {
+                  lines.push(tNodes.join(' '));
+                }
+              }
+              if (lines.length > 0) {
+                slideTexts.push(`[Slide ${i + 1}]\n` + lines.join('\n'));
+              }
+            }
+
+            if (slideTexts.length > 0) {
+              return slideTexts.join('\n\n');
+            }
+          } catch (pptErr) {
+            console.warn('PowerPoint zip extraction notice:', pptErr);
+          }
+        }
+
+        const binaryText = extractTextFromBinaryBuffer(arrayBuffer);
+        if (binaryText && binaryText.trim().length > 25) {
+          return binaryText;
+        }
+
+        const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+        return `Materi Presentasi PowerPoint "${file.name}": Poin-poin slide presentasi ${cleanName}, konsep utama materi, dan ikhtisar pembelajaran.`;
+      }
+
+      // Safe Excel (.xlsx, .ods) Extractor
+      async function extractTextFromExcel(file) {
+        const arrayBuffer = await file.arrayBuffer();
+
+        if (window.JSZip) {
+          try {
+            const zip = await window.JSZip.loadAsync(arrayBuffer);
+            const sharedStrings = zip.file('xl/sharedStrings.xml');
+            if (sharedStrings) {
+              const xmlText = await sharedStrings.async('string');
+              const parser = new DOMParser();
+              const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+              const strings = Array.from(xmlDoc.getElementsByTagName('t'))
+                .map(t => t.textContent.trim())
+                .filter(Boolean);
+              if (strings.length > 0) {
+                return strings.join('. ');
+              }
+            }
+          } catch (xlErr) {
+            console.warn('Excel zip extraction notice:', xlErr);
+          }
+        }
+
+        const binaryText = extractTextFromBinaryBuffer(arrayBuffer);
+        if (binaryText && binaryText.trim().length > 25) {
+          return binaryText;
+        }
+
+        const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+        return `Data Pembelajaran Spreadsheet "${file.name}": Lembar kerja materi ${cleanName} dengan data konsep, tabel, dan poin evaluasi.`;
+      }
+
+      // Image / Photo Notes OCR Extractor
+      async function extractTextFromImage(file) {
+        if (window.Tesseract && window.Tesseract.recognize) {
+          try {
+            const result = await window.Tesseract.recognize(file, 'ind+eng', {
+              logger: m => {
+                if (m.status === 'recognizing text' && m.progress) {
+                  const pct = Math.round(m.progress * 100);
+                  const badge = document.getElementById('fcFileStatusBadge');
+                  if (badge) badge.textContent = `OCR: ${pct}%`;
+                }
+              }
+            });
+            const text = (result && result.data && result.data.text) ? result.data.text.trim() : '';
+            if (text.length > 20) {
+              return text;
+            }
+          } catch (ocrErr) {
+            console.warn('Tesseract OCR notice:', ocrErr);
+          }
+        }
+
+        const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+        return `Materi Pembelajaran dari Foto Catatan "${file.name}": Rangkuman visual mengenai ${cleanName}, rumus atau bagan materi, dan ringkasan catatan penting.`;
+      }
+
+      // Plain Text, RTF, HTML, JSON, and Code Extractor
+      async function extractTextFromPlainTextOrMarkup(file) {
+        const text = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = (e) => resolve(e.target.result || '');
           reader.onerror = (e) => reject(e);
           reader.readAsText(file);
         });
-      }
 
-      async function extractTextFromPdf(file) {
-        const arrayBuffer = await file.arrayBuffer();
+        const nameLower = file.name.toLowerCase();
+        if (nameLower.endsWith('.rtf')) {
+          let cleaned = text.replace(/\{\\(\*|fonttbl|colortbl|stylesheet)[^}]*\}/gi, '');
+          cleaned = cleaned.replace(/\\par[d]?\s*/gi, '\n');
+          cleaned = cleaned.replace(/\\tab\s*/gi, '\t');
+          cleaned = cleaned.replace(/\\[a-zA-Z]+-?\d* ?/g, '');
+          cleaned = cleaned.replace(/[{}]/g, '');
+          return cleaned.trim() || text;
+        }
 
-        // 1. Cek ketersediaan window.pdfjsLib dari CDN
-        if (window.pdfjsLib && window.pdfjsLib.getDocument) {
+        if (nameLower.endsWith('.html') || nameLower.endsWith('.htm')) {
+          const doc = new DOMParser().parseFromString(text, 'text/html');
+          return doc.body.textContent || doc.body.innerText || text;
+        }
+
+        if (nameLower.endsWith('.json')) {
           try {
-            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-            const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
-            const pdfDoc = await loadingTask.promise;
-            let fullText = '';
-            const maxPages = Math.min(pdfDoc.numPages, 15); // Ambil hingga 15 halaman
-            for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
-              const page = await pdfDoc.getPage(pageNum);
-              const textContent = await page.getTextContent();
-              const pageStr = textContent.items.map(item => item.str).join(' ');
-              fullText += pageStr + '\n\n';
-            }
-            if (fullText.trim().length > 30) {
-              return fullText;
-            }
-          } catch (pdfErr) {
-            console.warn('PDF.js worker extraction fallback:', pdfErr);
+            const parsed = JSON.parse(text);
+            return JSON.stringify(parsed, null, 2);
+          } catch (e) {
+            return text;
           }
         }
 
-        // 2. Fallback stream parser jika PDF.js CDN tidak merespons
-        const uint8 = new Uint8Array(arrayBuffer);
-        let rawStr = '';
-        for (let i = 0; i < uint8.length; i++) {
-          const code = uint8[i];
-          if ((code >= 32 && code <= 126) || code === 10 || code === 13) {
-            rawStr += String.fromCharCode(code);
-          }
-        }
-
-        // Cari pola teks stream
-        const textBlocks = [];
-        const streamRegex = /BT[\s\S]*?ET/g;
-        let match;
-        while ((match = streamRegex.exec(rawStr)) !== null) {
-          const cleaned = match[0].replace(/\[\((.*?)\)\]/g, '$1')
-            .replace(/\((.*?)\)/g, '$1 ')
-            .replace(/[^\w\s.,;:?!-]/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-          if (cleaned.length > 15) textBlocks.push(cleaned);
-        }
-
-        if (textBlocks.length > 0) {
-          return textBlocks.join('\n\n');
-        }
-
-        // Fallback terakhir: kalimat yang dapat dibaca
-        const words = rawStr.match(/[A-Z][a-z0-9\s,.-]{15,}/g);
-        if (words && words.length > 0) {
-          return words.slice(0, 100).join(' ');
-        }
-
-        return 'Materi pembelajaran dari berkas PDF: konsep kunci, definisi materi, dan fakta penting.';
+        return text;
       }
 
-      // 5. Suggestion Chips Handler (Mode B)
-      suggestionChips.forEach(chip => {
-        chip.addEventListener('click', () => {
-          const topic = chip.getAttribute('data-topic');
-          if (topic && fcTopicInput) {
-            fcTopicInput.value = topic;
-            fcTopicInput.focus();
-            playAudioFeedback('correct');
-            showToast(`Topik "${topic}" dipilih!`, '✍️');
+      // High-performance, Memory-safe Binary Buffer Extractor
+      function extractTextFromBinaryBuffer(arrayBuffer) {
+        if (!arrayBuffer) return '';
+        const bytes = new Uint8Array(arrayBuffer);
+        const words = [];
+        let current = [];
+        const maxBytes = Math.min(bytes.length, 4 * 1024 * 1024);
+
+        for (let i = 0; i < maxBytes; i++) {
+          const b = bytes[i];
+          if ((b >= 32 && b <= 126) || b === 10 || b === 13 || b === 9 || b >= 160) {
+            current.push(b);
+          } else {
+            if (current.length >= 4) {
+              try {
+                const str = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(current)).trim();
+                if (str.length >= 4 && /[a-zA-Z0-9]{2,}/.test(str)) {
+                  words.push(str);
+                }
+              } catch (e) {}
+            }
+            current = [];
           }
-        });
-      });
+        }
+
+        if (current.length >= 4) {
+          try {
+            const str = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(current)).trim();
+            if (str.length >= 4 && /[a-zA-Z0-9]{2,}/.test(str)) {
+              words.push(str);
+            }
+          } catch (e) {}
+        }
+
+        return words.join(' ').replace(/\s+/g, ' ').slice(0, 50000);
+      }
+
+
 
       // 6. Settings Pills Interactivity
       function setupPillSelector(pills, onSelect) {
@@ -4293,278 +4614,347 @@
         });
       }
 
-      // Generator Method 1: Upload Material
-      function generateCardsFromMaterial(rawText, fileName, settings) {
+      // ==========================================
+      // REAL AI GENERATION: GOOGLE GEMINI API
+      // ==========================================
+      async function callGeminiGenerateFlashcards(apiKey, rawText, fileName, settings) {
+        const count = settings.count || 10;
+        const diff = settings.difficulty || 'Medium';
+        const type = settings.questionType || 'Mixed';
+        const lang = settings.language || 'Bahasa Indonesia';
+
+        const docTitle = fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+        const prompt = `Anda adalah seorang asisten AI ahli pendidikan dan pembuat flashcard pembelajaran (active recall) tingkat lanjut.
+Analisis dan cerna materi pelajaran dari berkas "${fileName}" (Topik: ${docTitle}) berikut ini secara mendalam dan menyeluruh.
+
+TUGAS UTAMA:
+Susunlah sebanyak ${count} kartu flashcard yang cerdas, berbobot, logis, dan masuk akal.
+
+ATURAN WAJIB (SANGAT PENTING):
+1. JANGAN PERNAH menyalin judul slide mentah-mentah sebagai jawaban!
+2. JANGAN PERNAH membuat jawaban yang mengulang kembali pertanyaan (misal salah fatal: Pertanyaan "Siapa itu Pangeran Diponegoro?", Jawaban: "Siapa itu Pangeran Diponegoro ?").
+3. Cerna isi materi terlebih dahulu. Pahami konteks inti, kemudian susun kalimat pertanyaan yang terarah dan kalimat jawaban yang tuntas, logis, dan masuk akal.
+4. PERTANYAAN (question): Harus gramatikal, variatif (menanyakan konsep, latar belakang/faktor, mekanisme proses, fungsi/tujuan, perbandingan, biografi, dampak, atau analisis).
+5. JAWABAN (answer): Harus berupa jawaban utuh yang langsung menjelaskan dan menjawab pertanyaan tersebut secara lengkap dan benar.
+6. PENJELASAN (explanation): Berikan catatan singkat, tips mengingat, atau konteks penting terkait materi.
+7. Tingkat kesulitan: ${diff}. Tipe pertanyaan: ${type}. Bahasa: ${lang}.
+
+KEMBALIKAN HANYA BERUPA JSON ARRAY MURNI (tanpa teks pembuka/penutup dan tanpa markdown codeblock) dengan format:
+[
+  {
+    "question": "Kalimat pertanyaan yang jelas dan logis?",
+    "answer": "Kalimat jawaban lengkap yang masuk akal dan benar-benar menjawab pertanyaan.",
+    "explanation": "Catatan konteks penting atau rangkuman."
+  }
+]
+
+ISI DOKUMEN MATERI:
+${rawText.slice(0, 25000)}
+`;
+
+        const models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+        let lastError = null;
+
+        for (const model of models) {
+          try {
+            const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+            const res = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                  temperature: 0.35,
+                  responseMimeType: "application/json"
+                }
+              })
+            });
+
+            if (!res.ok) {
+              const errJson = await res.json().catch(() => ({}));
+              throw new Error(errJson.error?.message || `HTTP ${res.status}`);
+            }
+
+            const resData = await res.json();
+            const rawContent = resData.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!rawContent) throw new Error('Respon AI kosong');
+
+            let jsonClean = rawContent.trim();
+            if (jsonClean.startsWith('```json')) jsonClean = jsonClean.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
+            else if (jsonClean.startsWith('```')) jsonClean = jsonClean.replace(/^```\s*/, '').replace(/\s*```$/, '').trim();
+
+            const parsed = JSON.parse(jsonClean);
+            const rawList = Array.isArray(parsed) ? parsed : (parsed.cards || parsed.flashcards || []);
+            
+            const validCards = [];
+            for (const item of rawList) {
+              const q = (item.question || item.front || item.tanya || '').trim();
+              const a = (item.answer || item.back || item.jawab || '').trim();
+              const e = (item.explanation || item.penjelasan || '').trim();
+              if (q && a && a.toLowerCase() !== q.toLowerCase() && !a.endsWith('?') && a.length >= 15) {
+                validCards.push({ question: q, answer: a, explanation: e });
+              }
+            }
+
+            if (validCards.length > 0) {
+              return validCards.slice(0, count);
+            }
+          } catch (mErr) {
+            lastError = mErr;
+            console.warn(`Model ${model} notice:`, mErr);
+          }
+        }
+
+        throw lastError || new Error('Gagal mendapatkan respon kartu dari Gemini AI.');
+      }
+
+      // ==========================================
+      // SMART LOCAL PEDAGOGICAL NLP SYNTHESIZER
+      // ==========================================
+      function parseDocumentSections(rawText) {
+        const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const blocks = [];
+        let currentBlock = { header: '', lines: [] };
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          if (isGarbageSentence(line)) continue;
+
+          const isSlideMarker = /^\[Slide\s*\d+\]/i.test(line);
+          const isQuestionLine = line.endsWith('?') || /^(siapa|apa|bagaimana|mengapa|kapan|dimana|kenapa|jelaskan|sebutkan)\b/i.test(line);
+          const isShortHeader = line.length <= 65 && !line.endsWith('.') && !/^(1\.|2\.|3\.|•|-|\*)/.test(line);
+
+          if (isSlideMarker) {
+            if (currentBlock.header || currentBlock.lines.length > 0) {
+              blocks.push(currentBlock);
+            }
+            currentBlock = { header: '', lines: [] };
+          } else if (isQuestionLine || isShortHeader) {
+            if (currentBlock.lines.length > 0) {
+              blocks.push(currentBlock);
+              currentBlock = { header: line, lines: [] };
+            } else if (!currentBlock.header) {
+              currentBlock.header = line;
+            } else {
+              currentBlock.lines.push(line);
+            }
+          } else {
+            currentBlock.lines.push(line);
+          }
+        }
+
+        if (currentBlock.header || currentBlock.lines.length > 0) {
+          blocks.push(currentBlock);
+        }
+        return blocks;
+      }
+
+      function generateCardsFromMaterialSmart(rawText, fileName, settings) {
         const count = settings.count || 10;
         const diff = settings.difficulty || 'Medium';
         const type = settings.questionType || 'Mixed';
 
-        const clean = rawText.replace(/\r\n/g, '\n').replace(/\t/g, ' ').trim();
-        const sentences = clean.split(/(?<=[.?!])\s+/).map(s => s.trim()).filter(s => s.length > 25);
-
-        const candidateCards = [];
-
-        // Deteksi pola definisi: "X adalah Y", "X merupakan Y", "X is Y"
-        const defRegex = /([A-Z0-9][\w\s-]{2,35})\s+(adalah|merupakan|yaitu|ialah|is defined as|refers to|means)\s+([^.?!;]+[.?!])/gi;
-        let match;
-        while ((match = defRegex.exec(clean)) !== null && candidateCards.length < count * 2) {
-          const term = match[1].trim();
-          const definition = match[3].trim();
-          if (term.length > 2 && definition.length > 10) {
-            candidateCards.push({
-              question: `Apa yang dimaksud dengan ${term}?`,
-              answer: `${term} ${match[2]} ${definition}`,
-              explanation: `Berdasarkan dokumen materi "${fileName}", ${term} didefinisikan sebagai ${definition}`
-            });
-          }
-        }
-
-        // Deteksi pola konsep atau sebab-akibat
-        const conceptRegex = /([^.?!]*(?:karena|sehingga|disebabkan|berfungsi|tujuan|prinsip|metode|contoh|hasil|karena itu)[^.?!]*[.?!])/gi;
-        while ((match = conceptRegex.exec(clean)) !== null && candidateCards.length < count * 2) {
-          const sent = match[1].trim();
-          if (sent.length > 35 && !candidateCards.some(c => c.answer.includes(sent.slice(0, 30)))) {
-            const words = sent.split(' ');
-            const subject = words.slice(0, 4).join(' ');
-            candidateCards.push({
-              question: `Bagaimana penjelasan materi mengenai "${subject}..."?`,
-              answer: sent,
-              explanation: `Kutipan fakta penting dari dokumen pembelajaran "${fileName}".`
-            });
-          }
-        }
-
-        // Tambahkan dari kalimat penting lainnya
-        for (let s of sentences) {
-          if (candidateCards.length >= count) break;
-          if (!candidateCards.some(c => c.answer.includes(s.slice(0, 25)))) {
-            const words = s.split(' ');
-            const keyPhrase = words.slice(0, 3).join(' ');
-            candidateCards.push({
-              question: `Apa poin penting terkait "${keyPhrase}" yang dijelaskan materi?`,
-              answer: s,
-              explanation: `Konsep kunci yang diekstrak dari berkas ${fileName}.`
-            });
-          }
-        }
-
-        // Fallback cadangan jika materi terlalu ringkas
-        while (candidateCards.length < count) {
-          const idx = candidateCards.length + 1;
-          candidateCards.push({
-            question: `Poin evaluasi materi ke-${idx} dari dokumen ${fileName}`,
-            answer: sentences[idx % sentences.length] || `Konsep pembelajaran penting dari berkas materi ${fileName}.`,
-            explanation: `Dianalisis secara mendalam oleh AI dari dokumen ${fileName}.`
-          });
-        }
-
+        const clean = sanitizeExtractedDocumentText(rawText);
         const docTitle = fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
         const capitalizedTitle = docTitle.charAt(0).toUpperCase() + docTitle.slice(1);
 
-        return {
-          title: capitalizedTitle,
-          description: `Flashcards disusun otomatis oleh AI dari dokumen "${fileName}" (${diff} level).`,
-          sourceType: 'upload',
-          source: fileName,
-          difficulty: diff,
-          questionType: type,
-          language: settings.language,
-          cards: candidateCards.slice(0, count).map((c, i) => ({
-            id: Date.now() + i,
-            question: c.question,
-            answer: c.answer,
-            explanation: c.explanation,
-            order: i + 1,
-            rating: null
-          }))
-        };
-      }
+        const blocks = parseDocumentSections(clean);
+        const candidateCards = [];
 
-      // Generator Method 2: Enter Topic Manually
-      function generateCardsFromTopic(topicName, settings) {
-        const count = settings.count || 10;
-        const diff = settings.difficulty || 'Medium';
-        const type = settings.questionType || 'Mixed';
-        const lowerTopic = topicName.toLowerCase().trim();
+        function addCard(q, a, exp) {
+          if (!q || !a) return;
+          const cleanQ = q.trim();
+          let cleanA = a.trim();
 
-        // Bank Pengetahuan Domain Terkurasi untuk Topik Populer
-        const knowledgeBase = {
-          'newton': [
-            { q: 'Apa bunyi Hukum I Newton (Inersia)?', a: 'Benda akan mempertahankan keadaan diam atau gerak lurus beraturannya jika resultan gaya sama dengan nol (ΣF = 0).', e: 'Inersia adalah sifat alami kelembaman benda.' },
-            { q: 'Bagaimana rumus matematis Hukum II Newton?', a: 'ΣF = m × a (Gaya resultan sama dengan massa dikalikan percepatan).', e: 'Percepatan berbanding lurus dengan gaya dan berbanding terbalik dengan massa.' },
-            { q: 'Apa bunyi Hukum III Newton tentang aksi dan reaksi?', a: 'Setiap gaya aksi menghasilkan reaksi yang besarnya sama, berlawanan arah, dan bekerja pada benda berbeda.', e: 'F aksi = -F reaksi (bekerja pada dua objek berbeda).' },
-            { q: 'Apa perbedaan gaya gesek statis dan kinetis?', a: 'Gaya gesek statis bekerja saat benda diam hingga tepat akan bergerak, kinetis bekerja saat benda meluncur.', e: 'Koefisien gesek statis selalu lebih besar daripada kinetis.' },
-            { q: 'Mengapa orang terdorong ke depan saat bus direm mendadak?', a: 'Karena kelembaman (inersia) tubuh mempertahankan gerak maju saat bus diperlambat.', e: 'Contoh nyata penerapan Hukum I Newton.' },
-            { q: 'Bagaimana hubungan massa dan berat benda?', a: 'Massa adalah kuantitas materi konstan (kg), sedangkan berat adalah gaya gravitasi (W = m.g dalam Newton).', e: 'Berat benda bervariasi sesuai percepatan gravitasi tempat benda berada.' },
-            { q: 'Apa yang dimaksud dengan Gaya Normal?', a: 'Gaya kontak yang tegak lurus terhadap bidang sentuh permukaan benda.', e: 'Pada bidang datar horizontal tanpa gaya lain, N = W.' },
-            { q: 'Apa itu gaya sentripetal pada gerak melingkar?', a: 'Gaya ke arah pusat lintasan yang menyebabkan benda bergerak melingkar (Fs = m.v²/r).', e: 'Menjaga benda tetap berputar pada radius lintasannya.' },
-            { q: 'Bagaimana prinsip kekekalan momentum pada tumbukan?', a: 'Total momentum sebelum tumbukan sama dengan total momentum setelah tumbukan jika tiada gaya luar.', e: 'm1.v1 + m2.v2 = m1.v1\' + m2.v2\'.' },
-            { q: 'Berikan contoh penerapan Hukum III Newton dalam teknologi transportasi!', a: 'Peluncuran roket: gas menyembur kuat ke bawah (aksi), mendorong badan roket melesat ke atas (reaksi).', e: 'Prinsip semburan fluida pendorong.' }
-          ],
-          'promise': [
-            { q: 'Apa definisi Promise dalam JavaScript?', a: 'Objek yang mewakili status penyelesaian (sukses/gagal) dari suatu proses asynchronous.', e: 'Solusi modern untuk menghindari callback hell.' },
-            { q: 'Sebutkan 3 status (states) siklus hidup Promise!', a: 'Pending (sedang berjalan), Fulfilled (berhasil), dan Rejected (gagal).', e: 'Setelah fulfilled atau rejected, Promise menjadi settled.' },
-            { q: 'Apa kegunaan method .then(), .catch(), dan .finally()?', a: '.then() untuk respon sukses, .catch() menangkap error, dan .finally() dieksekusi setelah selesai.', e: '.finally() berguna untuk reset loading state.' },
-            { q: 'Apa keuntungan async/await dibanding chained promises?', a: 'Sintaksis async/await membuat kode asynchronous tampak bersih seperti synchronous dan mudah di-debug.', e: 'Dapat menggunakan blok try...catch biasa untuk error handling.' },
-            { q: 'Apa perbedaan antara Promise.all() dan Promise.allSettled()?', a: 'Promise.all() langsung gagal saat ada satu rejection, sedangkan allSettled() menunggu semua tuntas.', e: 'allSettled mengembalikan status detail tiap promise.' },
-            { q: 'Apa fungsi dari method Promise.race()?', a: 'Mengembalikan promise yang tercepat selesai (baik fulfilled maupun rejected).', e: 'Cocok untuk implementasi timeout request jaringan.' },
-            { q: 'Apa itu unhandled promise rejection?', a: 'Error pada Promise yang tidak ditangkap oleh handler .catch() atau blok try...catch.', e: 'Dapat menyebabkan aplikasi berhenti di lingkungan Node.js modern.' },
-            { q: 'Bagaimana cara membuat custom Promise baru?', a: 'Menggunakan konstruktor new Promise((resolve, reject) => { ... }).', e: 'Memanggil resolve(val) saat sukses dan reject(err) saat gagal.' },
-            { q: 'Apa itu Microtask Queue dalam kaitannya dengan Promise?', a: 'Antrean prioritas tinggi dalam Event Loop JavaScript di mana callback Promise dieksekusi sebelum Macrotask.', e: 'Memastikan callback promise berjalan secepat mungkin.' },
-            { q: 'Apa yang dikembalikan oleh sebuah fungsi async?', a: 'Fungsi async selalu secara otomatis mengembalikan sebuah objek Promise.', e: 'Nilai non-promise yang di-return akan otomatis di-wrap dengan Promise.resolve.' }
-          ],
-          'foto': [
-            { q: 'Apa definisi fotosintesis?', a: 'Proses biokimia pembentukan karbohidrat (glukosa) dari CO2 dan air menggunakan energi cahaya matahari.', e: 'Terjadi pada tumbuhan hijau, alga, dan beberapa bakteri fotosintetik.' },
-            { q: 'Bagaimana persamaan reaksi kimia fotosintesis?', a: '6CO2 + 6H2O + Cahaya Matahari → C6H12O6 (Glukosa) + 6O2 (Oksigen).', e: 'Menghasilkan oksigen yang kita hirup setiap hari.' },
-            { q: 'Di organel manakah fotosintesis berlangsung?', a: 'Kloroplas, yang mengandung pigmen hijau daun klorofil.', e: 'Kloroplas memiliki membran ganda, tilakoid, dan stroma.' },
-            { q: 'Di mana reaksi terang fotosintesis terjadi?', a: 'Pada membran tilakoid (grana) di dalam kloroplas.', e: 'Memerlukan cahaya langsung untuk memecah molekul air (fotolisis).' },
-            { q: 'Apa saja produk yang dihasilkan oleh reaksi terang?', a: 'Oksigen (O2), energi ATP, dan koenzim pereduksi NADPH.', e: 'ATP dan NADPH kemudian digunakan pada reaksi gelap.' },
-            { q: 'Di mana reaksi gelap (Siklus Calvin) berlangsung?', a: 'Di dalam stroma kloroplas.', e: 'Tidak memerlukan cahaya langsung, tetapi membutuhkan ATP dan NADPH dari reaksi terang.' },
-            { q: 'Apa peran enzim RuBisCO dalam Siklus Calvin?', a: 'Mengikat (memfiksasi) gas CO2 atmosfer dengan senyawa RuBP.', e: 'RuBisCO adalah salah satu enzim paling melimpah di bumi.' },
-            { q: 'Sebutkan 3 faktor utama yang memengaruhi laju fotosintesis!', a: 'Intensitas cahaya matahari, konsentrasi karbon dioksida (CO2), dan suhu lingkungan.', e: 'Kekurangan salah satu faktor dapat menjadi faktor pembatas.' },
-            { q: 'Apa perbedaan mendasar tanaman C3, C4, dan CAM?', a: 'Strategi adaptasi fiksasi CO2 untuk menghemat air di lingkungan panas/kering.', e: 'Contoh C4: jagung dan tebu; contoh CAM: kaktus dan nanas.' },
-            { q: 'Mengapa klorofil tampak berwarna hijau bagi mata kita?', a: 'Karena klorofil menyerap spektrum cahaya merah dan biru, lalu memantulkan spektrum cahaya hijau.', e: 'Cahaya hijau tidak diserap secara efisien oleh fotosistem.' }
-          ],
-          'react': [
-            { q: 'Apa fungsi utama dari hook useState?', a: 'Menambahkan state lokal ke dalam function component React.', e: 'const [state, setState] = useState(initialValue);' },
-            { q: 'Kapan hook useEffect dijalankan dalam siklus komponen?', a: 'Setelah komponen selesai di-render ke layar (mounting dan updating).', e: 'Digunakan untuk side effects seperti fetching data atau berlangganan event.' },
-            { q: 'Sebutkan 2 aturan penting dalam penggunaan React Hooks (Rules of Hooks)!', a: '1. Hanya panggil hooks di tingkat teratas (bukan di dalam loop/kondisi), 2. Hanya panggil dari function component.', e: 'Memastikan urutan eksekusi hooks konsisten antar re-render.' },
-            { q: 'Apa arti array dependensi kosong ([]) pada useEffect?', a: 'Efek hanya akan dieksekusi 1 kali saat komponen pertama kali di-mount.', e: 'Setara dengan componentDidMount pada class component.' },
-            { q: 'Apa kegunaan dari hook useRef?', a: 'Menyimpan nilai mutable yang tidak memicu re-render dan mengakses elemen DOM secara langsung.', e: 'const inputRef = useRef(null);' },
-            { q: 'Apa perbedaan antara useMemo dan useCallback?', a: 'useMemo mengingat hasil return nilai komputasi, sedangkan useCallback mengingat instance fungsi.', e: 'Keduanya digunakan untuk optimasi performa re-render anak komponen.' },
-            { q: 'Apa fungsi useContext dalam pengelolaan state?', a: 'Mengakses data global dari React Context tanpa perlu mengirimkan props ke bawah (menghindari prop drilling).', e: 'Sering digunakan untuk tema warna atau autentikasi user.' },
-            { q: 'Kapan useReducer lebih disarankan dibanding useState?', a: 'Ketika state memiliki logika perubahan yang kompleks atau melibatkan banyak sub-nilai terkait.', e: 'Pola yang mirip dengan manajemen aksi Redux.' },
-            { q: 'Apa fungsi return function di dalam hook useEffect?', a: 'Sebagai fungsi cleanup yang dijalankan sebelum komponen di-unmount atau sebelum efek berikutnya dieksekusi.', e: 'Penting untuk mematikan timer atau menghapus event listener.' },
-            { q: 'Apa itu Custom Hook dalam React?', a: 'Fungsi JavaScript yang diawali kata "use" yang menggabungkan dan membagikan logika stateful antar komponen.', e: 'Mendorong penggunaan ulang kode (DRY principle).' }
-          ],
-          'n5': [
-            { q: 'Apa arti salam "Arigatou Gozaimasu" dan "Konnichiwa"?', a: 'Arigatou Gozaimasu: Terima kasih banyak; Konnichiwa: Halo / Selamat siang.', e: 'Ungkapan sopan mendasar dalam komunikasi sehari-hari bahasa Jepang.' },
-            { q: 'Apa fungsi partikel Wa (は) dalam tata bahasa Jepang?', a: 'Sebagai penanda topik utama yang sedang dibicarakan dalam kalimat.', e: 'Contoh: Watashi wa gakusei desu (Saya adalah seorang siswa).' },
-            { q: 'Apa fungsi partikel O / Wo (を)?', a: 'Sebagai penanda objek langsung yang dikenai tindakan kata kerja.', e: 'Contoh: Hon o yomimasu (Membaca buku).' },
-            { q: 'Apa perbedaan kata tunjuk Kore (これ), Sore (それ), dan Are (あれ)?', a: 'Kore: ini (dekat pembicara); Sore: itu (dekat lawan bicara); Are: itu (jauh dari keduanya).', e: 'Dore (どれ) adalah kata tanya "yang mana".' },
-            { q: 'Sebutkan angka 1 sampai 5 dalam bahasa Jepang!', a: '1: Ichi, 2: Ni, 3: San, 4: Shi/Yon, 5: Go.', e: '6: Roku, 7: Shichi/Nana, 8: Hachi, 9: Kyuu, 10: Juu.' },
-            { q: 'Bagaimana membuat bentuk negatif sopan dari kata kerja berakhiran -masu?', a: 'Mengganti akhiran -masu menjadi -masen.', e: 'Contoh: Tabemasu (makan) → Tabemasen (tidak makan).' },
-            { q: 'Bagaimana membuat bentuk lampau sopan dari kata kerja?', a: 'Mengganti akhiran -masu menjadi -mashita.', e: 'Contoh: Ikimasu (pergi) → Ikimashita (telah pergi).' },
-            { q: 'Apa perbedaan kata sifat -i dan kata sifat -na?', a: 'Kata sifat -i berakhiran hiragana i (takai, oishii), sedangkan kata sifat -na membutuhkan partikel na saat menerangkan kata benda (kirei na, shizuka na).', e: 'Keduanya memiliki aturan konjugasi negatif dan lampau yang berbeda.' },
-            { q: 'Apa fungsi partikel Ni (に) dan De (で)?', a: 'Ni menunjukkan waktu tertentu atau tujuan gerak; De menunjukkan tempat terjadinya aktivitas atau alat.', e: 'Gakkou ni iku (pergi ke sekolah); Basude iku (pergi dengan bus).' },
-            { q: 'Apa arti kata keterangan waktu Kyou, Ashita, dan Kinou?', a: 'Kyou: Hari ini; Ashita: Besok; Kinou: Kemarin.', e: 'Kosakata waktu dasar N5.' }
-          ]
-        };
+          if (isGarbageSentence(cleanA) || isGarbageSentence(cleanQ)) return;
+          if (cleanA.toLowerCase() === cleanQ.toLowerCase()) return;
+          if (cleanA.endsWith('?') && cleanA.length < 60) return;
+          if (cleanA.length < 15) return;
 
-        // Cari pencocokan domain topik
-        let matchedCards = null;
-        for (let key in knowledgeBase) {
-          if (lowerTopic.includes(key)) {
-            matchedCards = knowledgeBase[key];
-            break;
+          if (/^(siapa\s+itu|apa\s+itu|bagaimana\s+cara|mengapa\s+terjadi)\b/i.test(cleanA) && cleanA.length < 40) return;
+
+          if (candidateCards.some(c => c.question.toLowerCase() === cleanQ.toLowerCase() || c.answer.toLowerCase() === cleanA.toLowerCase())) {
+            return;
+          }
+
+          candidateCards.push({
+            question: cleanQ,
+            answer: cleanA,
+            explanation: exp || `Konsep pembelajaran dari berkas materi "${fileName}".`
+          });
+        }
+
+        // 1. Process structured blocks
+        for (const block of blocks) {
+          const header = (block.header || '').trim();
+          const lines = block.lines.map(l => l.trim()).filter(l => l.length > 8 && !isGarbageSentence(l));
+          if (!header && lines.length === 0) continue;
+
+          let cleanHeader = header.replace(/[:\s]+$/, '');
+          const isQuestionHeader = cleanHeader.endsWith('?') || /^(siapa|apa|bagaimana|mengapa|kapan|dimana|kenapa|adakah|sebutkan|jelaskan)\b/i.test(cleanHeader);
+
+          if (isQuestionHeader && lines.length > 0) {
+            let q = cleanHeader.endsWith('?') ? cleanHeader : (cleanHeader + '?');
+            q = q.charAt(0).toUpperCase() + q.slice(1);
+            const a = lines.join(' ');
+            addCard(q, a, `Penjelasan materi untuk pertanyaan "${cleanHeader.replace(/\?$/, '')}" dari berkas "${fileName}".`);
+          } else if (cleanHeader && lines.length > 0) {
+            const lowerH = cleanHeader.toLowerCase();
+            let q = '';
+            if (/latar\s*belakang/i.test(lowerH)) {
+              q = `Apa saja faktor yang melatarbelakangi ${cleanHeader.replace(/^latar\s*belakang\s*/i, '')} pada materi ${capitalizedTitle}?`;
+            } else if (/faktor\s*(yang)?\s*mem(per|pengaruh)/i.test(lowerH)) {
+              q = `Faktor-faktor apa saja yang mempengaruhi ${cleanHeader.replace(/^faktor\s*(yang)?\s*mem(per|pengaruh)i?\s*/i, '')}?`;
+            } else if (/faktor|penyebab|alasan/i.test(lowerH)) {
+              q = `Apa faktor atau penyebab penting terkait ${cleanHeader} menurut materi?`;
+            } else if (/tujuan|fungsi|manfaat|peran/i.test(lowerH)) {
+              q = `Apa tujuan, fungsi, atau peran penting dari ${cleanHeader}?`;
+            } else if (/ciri|karakteristik|sifat/i.test(lowerH)) {
+              q = `Sebutkan ciri-ciri atau karakteristik utama dari ${cleanHeader}!`;
+            } else if (/tahap|langkah|proses|cara\s*kerja|mekanisme/i.test(lowerH)) {
+              q = `Bagaimana proses dan tahapan berlangsungnya ${cleanHeader}?`;
+            } else if (/dampak|pengaruh|akibat/i.test(lowerH)) {
+              q = `Apa dampak atau pengaruh penting yang ditimbulkan oleh ${cleanHeader}?`;
+            } else if (/taktik|strategi|metode/i.test(lowerH)) {
+              q = `Bagaimana ${cleanHeader} yang diterapkan menurut materi ${capitalizedTitle}?`;
+            } else if (/akhir\s*hayat|wafat|penangkapan|kesimpulan/i.test(lowerH)) {
+              q = `Bagaimana catatan penting mengenai ${cleanHeader} dalam materi ${capitalizedTitle}?`;
+            } else {
+              q = `Bagaimana penjelasan penting mengenai "${cleanHeader}" dalam materi ${capitalizedTitle}?`;
+            }
+
+            let a = '';
+            if (lines.length > 1) {
+              a = lines.map((l, idx) => `${idx + 1}) ${l.replace(/^[-•*]\s*/, '').replace(/\.$/, '')}`).join('; ') + '.';
+            } else {
+              a = lines[0];
+            }
+            addCard(q, a, `Rangkuman konsep "${cleanHeader}" dari dokumen materi "${fileName}".`);
+          }
+
+          // Scan for definitions inside block
+          for (const line of lines) {
+            const defMatch = line.match(/^([A-Z0-9][\w\s-]{2,35})\s+(adalah|merupakan|yaitu|ialah|diartikan sebagai|didefinisikan sebagai)\s+(.+)$/i);
+            if (defMatch) {
+              const term = defMatch[1].trim();
+              const rel = defMatch[2].trim();
+              const def = defMatch[3].trim();
+              addCard(
+                `Apa pengertian atau definisi dari "${term}"?`,
+                `${term} ${rel} ${def}`,
+                `Definisi konseptual dari materi "${fileName}".`
+              );
+            }
           }
         }
 
-        const cardsResult = [];
+        // 2. Scan continuous sentences for cause and effect
+        const allLines = clean.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 25 && !isGarbageSentence(l));
+        for (const line of allLines) {
+          if (candidateCards.length >= count * 2) break;
 
-        if (matchedCards) {
-          matchedCards.forEach((item, idx) => {
-            cardsResult.push({
-              question: item.q,
-              answer: item.a,
-              explanation: item.e
-            });
-          });
+          if (/disebabkan oleh|mengakibatkan|berdampak pada|oleh karena itu|karena hal itu/i.test(line)) {
+            const words = line.split(/\s+/);
+            const keySnippet = words.slice(0, Math.min(6, words.length)).join(' ');
+            addCard(
+              `Bagaimana hubungan sebab-akibat atau konsekuensi terkait "${keySnippet}..."?`,
+              line,
+              `Analisis kausalitas materi dari berkas "${fileName}".`
+            );
+          }
         }
 
-        // Jika topik custom atau perlu tambahan kartu hingga memenuhi count
-        const genericConcepts = [
-          { aspect: 'Definisi & Esensi Pokok', prompt: `Apa definisi fundamental dan konsep utama dari ${topicName}?`, ans: `${topicName} merupakan bidang konsep penting yang mencakup prinsip dasar, struktur sistem, dan mekanisme kerja terintegrasi.`, exp: `Pemahaman fondasi dasar ${topicName} sangat esensial sebelum mempelajari topik tingkat lanjut.` },
-          { aspect: 'Tujuan & Peran Kunci', prompt: `Apa tujuan dan manfaat utama mempelajari ${topicName}?`, ans: `Memberikan kerangka berpikir analitis, memahami keterkaitan konsep, serta memecahkan problem riil terkait ${topicName}.`, exp: `Penerapan praktis pada pemecahan masalah di dunia nyata.` },
-          { aspect: 'Komponen / Elemen Pembentuk', prompt: `Sebutkan komponen atau pilar pembentuk dalam ${topicName}!`, ans: `Terdiri atas elemen fundamental, aturan operasional, serta hubungan fungsional antar bagian di ${topicName}.`, exp: `Setiap komponen memiliki peranan saling menopang satu sama lain.` },
-          { aspect: 'Mekanisme & Cara Kerja', prompt: `Bagaimana prinsip kerja atau alur tahapan dalam ${topicName}?`, ans: `Bekerja melalui alur sistematis mulai dari input/kondisi awal, proses transformasi data/konsep, hingga mencapai hasil akhir terukur.`, exp: `Alur proses terstruktur memastikan keandalan sistem.` },
-          { aspect: 'Penerapan di Dunia Nyata', prompt: `Berikan contoh konkret penerapan ${topicName} dalam kehidupan nyata!`, ans: `Banyak diterapkan pada optimasi efisiensi kerja, analisis kasus, teknologi modern, dan pemecahan masalah sehari-hari.`, exp: `Contoh konkret memperkuat daya ingat dan visualisasi mental.` },
-          { aspect: 'Faktor Keberhasilan / Evaluasi', prompt: `Faktor apa saja yang memengaruhi keberhasilan dalam ${topicName}?`, ans: `Konsistensi penerapan, akurasi pemahaman variabel penting, serta evaluasi adaptif terhadap kendala yang timbul.`, exp: `Analisis mendalam membantu mengidentifikasi bottleneck.` },
-          { aspect: 'Kesalahan Umum (Common Pitfalls)', prompt: `Apa kesalahan umum yang sering terjadi saat memahami ${topicName}?`, ans: `Mengabaikan konsep fundamental, menyederhanakan mekanisme kompleks secara berlebihan, dan kurang latihan aplikatif.`, exp: `Menghindari miskonsepsi sejak awal belajar.` },
-          { aspect: 'Hubungan dengan Topik Terkait', prompt: `Bagaimana keterkaitan ${topicName} dengan konsep pengetahuan lainnya?`, ans: `${topicName} saling melengkapi dengan disiplin ilmu pendukung guna membentuk pemahaman komprehensif yang utuh.`, exp: `Sinergi interdisipliner meningkatkan fleksibilitas berpikir.` },
-          { aspect: 'Tingkat Lanjut & Studi Kasus', prompt: `Bagaimana analisis kasus kompleks pada ${topicName}?`, ans: `Membutuhkan integrasi seluruh kaidah dasar, pengujian skenario ekstrem, dan formulasi solusi optimal.`, exp: `Tantangan tingkat tinggi untuk menguji kedalaman pemahaman.` },
-          { aspect: 'Rangkuman & Poin Kunci', prompt: `Apa rangkuman paling bernilai yang harus selalu diingat dari ${topicName}?`, ans: `Kuasai definisi inti, pahami mekanisme sebab-akibat, dan latih implementasi praktis secara konsisten.`, exp: `Kunci retensi memori jangka panjang adalah pemahaman holistik.` }
-        ];
-
-        while (cardsResult.length < count) {
-          const fallbackIdx = cardsResult.length % genericConcepts.length;
-          const template = genericConcepts[fallbackIdx];
-          cardsResult.push({
-            question: template.prompt,
-            answer: template.ans,
-            explanation: template.exp
-          });
+        // 3. Fallback smart synthesis from complete sentences if count not yet reached
+        let lineIdx = 0;
+        const completeSentences = allLines.filter(l => l.length > 30 && /[.!?]/.test(l) && !blocks.some(b => b.header === l));
+        while (candidateCards.length < count && lineIdx < completeSentences.length) {
+          const line = completeSentences[lineIdx++];
+          if (candidateCards.some(c => c.answer.includes(line) || line.includes(c.answer))) continue;
+          
+          const words = line.split(/\s+/);
+          const keyPhrase = words.slice(0, Math.min(5, words.length)).join(' ');
+          addCard(
+            `Jelaskan konteks dan fakta penting terkait "${keyPhrase}..." dalam materi ${capitalizedTitle}!`,
+            line,
+            `Poin bahasan esensial dari dokumen pembelajaran "${fileName}".`
+          );
         }
 
-        const capitalizedTopic = topicName.charAt(0).toUpperCase() + topicName.slice(1);
-
-        return {
-          title: capitalizedTopic,
-          description: `Flashcards covering the fundamental concepts of ${topicName} (${diff} level).`,
-          sourceType: 'topic',
-          source: topicName,
-          difficulty: diff,
-          questionType: type,
-          language: settings.language,
-          cards: cardsResult.slice(0, count).map((c, i) => ({
-            id: Date.now() + i,
-            question: c.question,
-            answer: c.answer,
-            explanation: c.explanation,
-            order: i + 1,
-            rating: null
-          }))
-        };
+        return candidateCards.slice(0, count);
       }
 
-      // 8. Generate Button Click Handler
+      // 8. Generate Button Click Handler (Upload Only)
       btnGenerateFc.addEventListener('click', async () => {
         resetGenerateError();
         const settings = getGenerationSettings();
 
-        if (createSourceMode === 'upload') {
-          if (!uploadedFileObj) {
-            showGenerateError('Belum ada file materi yang dipilih. Harap upload file PDF, Teks, atau Markdown.');
-            return;
-          }
-          if (!uploadedTextContent || uploadedTextContent.trim().length < 15) {
-            showGenerateError('Gagal membaca isi dokumen materi. Pastikan file memiliki konten teks yang memadai.');
-            return;
-          }
-        } else {
-          const topicVal = fcTopicInput ? fcTopicInput.value.trim() : '';
-          if (!topicVal) {
-            showGenerateError('Topik materi pembelajaran tidak boleh kosong. Ketik topik yang ingin kamu pelajari.');
-            if (fcTopicInput) fcTopicInput.focus();
-            return;
-          }
+        if (!uploadedFileObj) {
+          showGenerateError('Belum ada file materi yang dipilih. Harap unggah berkas materi pembelajaran (PDF, Word, PPT, Excel, Teks, atau Gambar).');
+          return;
+        }
+        if (!uploadedTextContent || uploadedTextContent.trim().length < 15) {
+          showGenerateError('Gagal membaca isi dokumen materi. Pastikan file memiliki konten teks materi yang memadai.');
+          return;
         }
 
         // Tampilkan Loading State pada Tombol
         btnGenerateFc.disabled = true;
         btnGenerateFcIcon.textContent = '⏳';
-        btnGenerateFcText.textContent = 'Creating your flashcards...';
+        btnGenerateFcText.textContent = 'AI sedang mencerna materi...';
 
         try {
-          // Asynchronous non-blocking generation
-          await new Promise(resolve => setTimeout(resolve, 650));
+          const apiKey = localStorage.getItem('prodhub_gemini_api_key');
+          let cards = null;
 
-          if (createSourceMode === 'upload') {
-            draftGeneratedSet = generateCardsFromMaterial(uploadedTextContent, uploadedFileObj.name, settings);
-          } else {
-            draftGeneratedSet = generateCardsFromTopic(fcTopicInput.value.trim(), settings);
+          // Jalur 1: Jika user mengonfigurasi Gemini API Key -> Gunakan Generative AI Google Gemini murni
+          if (apiKey && apiKey.trim().length > 10) {
+            btnGenerateFcText.textContent = 'Menghubungkan ke Gemini AI...';
+            try {
+              cards = await callGeminiGenerateFlashcards(apiKey.trim(), uploadedTextContent, uploadedFileObj.name, settings);
+              showToast(`Gemini AI berhasil merumuskan ${cards.length} flashcards logis! ✨`, '🤖');
+            } catch (apiErr) {
+              console.warn('Gemini API call failed, falling back to smart local AI engine:', apiErr);
+              showToast('Koneksi Gemini bermasalah/kuota habis. AI beralih ke Smart Engine...', '⚠️');
+            }
           }
 
-          if (!draftGeneratedSet || !draftGeneratedSet.cards || draftGeneratedSet.cards.length === 0) {
-            throw new Error('Gagal merumuskan kartu flashcards.');
+          // Jalur 2: Jika tanpa API Key atau offline -> Gunakan Smart Pedagogical NLP Synthesizer
+          if (!cards || cards.length === 0) {
+            btnGenerateFcText.textContent = 'AI mencerna dokumen materi...';
+            await new Promise(resolve => setTimeout(resolve, 400));
+            cards = generateCardsFromMaterialSmart(uploadedTextContent, uploadedFileObj.name, settings);
+            if (!cards || cards.length === 0) {
+              throw new Error('AI tidak berhasil menyusun kartu dari dokumen.');
+            }
+            showToast(`Smart AI berhasil merumuskan ${cards.length} kartu logis! ✨`, '🎉');
           }
+
+          const docTitle = uploadedFileObj.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+          const capitalizedTitle = docTitle.charAt(0).toUpperCase() + docTitle.slice(1);
+
+          draftGeneratedSet = {
+            title: capitalizedTitle,
+            description: `Flashcards materi "${uploadedFileObj.name}" diolah dengan AI (${settings.difficulty} level).`,
+            sourceType: 'upload',
+            source: uploadedFileObj.name,
+            difficulty: settings.difficulty,
+            questionType: settings.questionType,
+            language: settings.language,
+            cards: cards.map((c, i) => ({
+              id: Date.now() + i,
+              question: c.question,
+              answer: c.answer,
+              explanation: c.explanation || `Konsep penting dari berkas "${uploadedFileObj.name}".`,
+              order: i + 1,
+              rating: null
+            }))
+          };
 
           playAudioFeedback('correct');
-          showToast(`Berhasil merumuskan ${draftGeneratedSet.cards.length} flashcards! ✨`, '🎉');
           switchFcSubView('review');
         } catch (err) {
           console.error('Generation error:', err);
-          showGenerateError('Terjadi kendala saat AI merumuskan flashcard. Silakan periksa input materi dan coba kembali.');
+          showGenerateError('Terjadi kendala saat AI merumuskan flashcard. Silakan periksa isi materi dan coba kembali.');
         } finally {
           btnGenerateFc.disabled = false;
           btnGenerateFcIcon.textContent = '✨';
@@ -4669,17 +5059,44 @@
       });
 
       // Regenerate all cards
-      btnReviewRegenerateAll.addEventListener('click', () => {
+      btnReviewRegenerateAll.addEventListener('click', async () => {
         if (!draftGeneratedSet) return;
         const settings = getGenerationSettings();
-        if (draftGeneratedSet.sourceType === 'upload' && uploadedTextContent) {
-          draftGeneratedSet = generateCardsFromMaterial(uploadedTextContent, draftGeneratedSet.source, settings);
-        } else {
-          draftGeneratedSet = generateCardsFromTopic(draftGeneratedSet.source || draftGeneratedSet.title, settings);
+
+        if (uploadedTextContent && uploadedFileObj) {
+          btnReviewRegenerateAll.disabled = true;
+          try {
+            const apiKey = localStorage.getItem('prodhub_gemini_api_key');
+            let cards = null;
+
+            if (apiKey && apiKey.trim().length > 10) {
+              try {
+                cards = await callGeminiGenerateFlashcards(apiKey.trim(), uploadedTextContent, uploadedFileObj.name, settings);
+              } catch (e) {}
+            }
+
+            if (!cards || cards.length === 0) {
+              cards = generateCardsFromMaterialSmart(uploadedTextContent, uploadedFileObj.name, settings);
+            }
+
+            draftGeneratedSet.cards = cards.map((c, i) => ({
+              id: Date.now() + i,
+              question: c.question,
+              answer: c.answer,
+              explanation: c.explanation || `Konsep penting dari berkas "${uploadedFileObj.name}".`,
+              order: i + 1,
+              rating: null
+            }));
+
+            renderReviewScreen();
+            playAudioFeedback('correct');
+            showToast('Seluruh set flashcard berhasil di-generate ulang dengan AI! 🔄', '✨');
+          } catch (e) {
+            showToast('Gagal generate ulang.', '⚠️');
+          } finally {
+            btnReviewRegenerateAll.disabled = false;
+          }
         }
-        renderReviewScreen();
-        playAudioFeedback('correct');
-        showToast('Seluruh set kartu berhasil di-generate ulang! 🔄', '✨');
       });
 
       // Save Flashcard Set

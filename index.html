@@ -2787,6 +2787,38 @@
       </div>
     </div>
 
+    <!-- POPUP MODAL: FIREBASE SYNC MANAGEMENT -->
+    <div id="firebaseSyncModal" class="reflection-modal-overlay">
+      <div class="reflection-modal-box" style="max-width:340px; padding:22px 18px; text-align:left;">
+        <div style="text-align:center; margin-bottom:12px;">
+          <span style="font-size:2.2rem; display:block; margin-bottom:4px;">☁️</span>
+          <h3 style="font-size:1.05rem; font-weight:800; color:#FFFFFF;">Sinkronisasi Cloud</h3>
+          <p style="font-size:0.75rem; color:var(--color-dim); margin-top:4px;">
+            Gunakan ID yang sama di HP dan Komputer agar target & catatan otomatis tersinkron.
+          </p>
+        </div>
+
+        <div style="margin-bottom:14px;">
+          <label style="display:block; font-size:0.72rem; color:var(--theme-tan); font-weight:700; margin-bottom:6px;">ID AKUN / RUANG SINKRONISASI</label>
+          <div style="display:flex; gap:6px;">
+            <input id="inputSyncUserId" type="text" value="main_user" style="flex:1; padding:8px 12px; background:rgba(30,24,18,0.7); border:1px solid var(--card-border); border-radius:var(--radius-sm); color:var(--color-cream); font-size:0.85rem;" placeholder="main_user" />
+            <button id="btnSaveSyncUserId" style="padding:8px 12px; background:var(--card-soft); border:1px solid var(--theme-tan); border-radius:var(--radius-sm); color:var(--color-gold); font-size:0.75rem; font-weight:700; cursor:pointer;">Terapkan</button>
+          </div>
+        </div>
+
+        <div style="background:rgba(210,180,140,0.1); border-radius:var(--radius-sm); padding:10px; margin-bottom:14px; font-size:0.72rem; color:var(--color-muted); line-height:1.4;">
+          Status: <strong id="modalSyncStatus">Cloud Aktif</strong><br>
+          <span style="color:var(--color-dim)">HP dan Komputer otomatis tersinkron selama berada di ID ruang yang sama (default: <code>main_user</code>).</span>
+        </div>
+
+        <div style="display:flex; gap:8px;">
+          <button id="btnCloseSyncModal" class="btn-reflect-later" style="flex:1; margin-top:0; padding:9px; font-size:0.78rem;">
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- ==========================================================
          FIXED BOTTOM NAVIGATION BAR: 4 TAB SATU BARIS (FRAMELESS)
          ========================================================== -->
@@ -2869,10 +2901,12 @@
     let userDocRef = null;
     let isFirebaseReady = false;
 
-    // Unique user ID in localStorage
+    // Primary shared account ID across all devices (PC & HP)
+    const DEFAULT_SYNC_USER = 'main_user';
     let currentUserId = localStorage.getItem('prodhub_user_uid');
-    if (!currentUserId) {
-      currentUserId = 'user_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+    // Jika belum ada atau sebelumnya merupakan ID acak (berawalan user_), otomatis arahkan ke main_user
+    if (!currentUserId || currentUserId.startsWith('user_')) {
+      currentUserId = DEFAULT_SYNC_USER;
       localStorage.setItem('prodhub_user_uid', currentUserId);
     }
 
@@ -5485,6 +5519,11 @@ ${rawText.slice(0, 25000)}
       const firebaseSyncBadge = document.getElementById('firebaseSyncBadge');
       const firebaseDot = document.getElementById('firebaseDot');
       const firebaseStatusText = document.getElementById('firebaseStatusText');
+      const firebaseSyncModal = document.getElementById('firebaseSyncModal');
+      const inputSyncUserId = document.getElementById('inputSyncUserId');
+      const btnSaveSyncUserId = document.getElementById('btnSaveSyncUserId');
+      const btnCloseSyncModal = document.getElementById('btnCloseSyncModal');
+      const modalSyncStatus = document.getElementById('modalSyncStatus');
 
       function updateFirebaseStatusUI(status, label) {
         if (!firebaseDot || !firebaseStatusText) return;
@@ -5492,34 +5531,63 @@ ${rawText.slice(0, 25000)}
           firebaseDot.style.background = '#10b981';
           firebaseDot.style.boxShadow = '0 0 6px rgba(16, 185, 129, 0.7)';
           firebaseStatusText.textContent = label || 'Cloud Aktif';
+          if (modalSyncStatus) modalSyncStatus.textContent = 'Terhubung ke Cloud (Aktif)';
         } else if (status === 'syncing') {
           firebaseDot.style.background = '#f59e0b';
           firebaseDot.style.boxShadow = '0 0 6px rgba(245, 158, 11, 0.7)';
           firebaseStatusText.textContent = label || 'Sinkronisasi...';
+          if (modalSyncStatus) modalSyncStatus.textContent = 'Menyimpan ke Cloud...';
         } else if (status === 'error') {
           firebaseDot.style.background = '#ef4444';
           firebaseDot.style.boxShadow = '0 0 6px rgba(239, 68, 68, 0.7)';
           firebaseStatusText.textContent = label || 'Offline (Lokal)';
+          if (modalSyncStatus) modalSyncStatus.textContent = 'Offline (Tersimpan Lokal)';
         }
       }
 
       if (firebaseSyncBadge) {
-        firebaseSyncBadge.addEventListener('click', async () => {
-          const action = await showInAppConfirm({
-            title: 'Firebase Cloud Sync',
-            message: `ID Sync Perangkat: ${currentUserId}\n\nData tersinkron otomatis ke Firebase Cloud Firestore. Klik Salin ID untuk menghubungkan antar perangkat.`,
-            icon: '🔥',
-            okText: 'Salin ID',
-            cancelText: 'Tutup'
-          });
-          if (action && navigator.clipboard) {
-            navigator.clipboard.writeText(currentUserId).then(() => {
-              showToast(`ID Sync disalin: ${currentUserId} 📋`, '✨');
-            }).catch(() => {
-              showToast(`ID Sync Anda: ${currentUserId}`, 'ℹ️');
-            });
+        firebaseSyncBadge.addEventListener('click', () => {
+          if (inputSyncUserId) inputSyncUserId.value = currentUserId;
+          if (firebaseSyncModal) firebaseSyncModal.classList.add('active');
+        });
+      }
+
+      if (btnCloseSyncModal && firebaseSyncModal) {
+        btnCloseSyncModal.addEventListener('click', () => {
+          firebaseSyncModal.classList.remove('active');
+        });
+      }
+
+      if (btnSaveSyncUserId && inputSyncUserId) {
+        btnSaveSyncUserId.addEventListener('click', () => {
+          const newId = inputSyncUserId.value.trim();
+          if (newId && newId !== currentUserId) {
+            currentUserId = newId;
+            localStorage.setItem('prodhub_user_uid', currentUserId);
+            showToast(`Beralih ke ID Akun: ${currentUserId}`, '🔄');
+            if (firebaseSyncModal) firebaseSyncModal.classList.remove('active');
+            initFirebaseCloudSync();
+          } else {
+            showToast(`ID Akun saat ini: ${currentUserId}`, 'ℹ️');
+            if (firebaseSyncModal) firebaseSyncModal.classList.remove('active');
           }
         });
+      }
+
+      // Merge helper to combine local and remote items without losing data
+      function mergeById(localItems, cloudItems) {
+        if (!Array.isArray(cloudItems) || cloudItems.length === 0) return localItems || [];
+        if (!Array.isArray(localItems) || localItems.length === 0) return cloudItems || [];
+        const map = new Map();
+        cloudItems.forEach(item => {
+          if (item && item.id !== undefined) map.set(String(item.id), item);
+        });
+        localItems.forEach(item => {
+          if (item && item.id !== undefined && !map.has(String(item.id))) {
+            map.set(String(item.id), item);
+          }
+        });
+        return Array.from(map.values());
       }
 
       // Debounced Cloud Sync Functions
@@ -5539,7 +5607,7 @@ ${rawText.slice(0, 25000)}
             console.warn('Sync tasks error:', e);
             updateFirebaseStatusUI('error', 'Lokal (Offline)');
           }
-        }, 500);
+        }, 300);
       }
 
       let syncFocusTimer = null;
@@ -5558,7 +5626,7 @@ ${rawText.slice(0, 25000)}
             console.warn('Sync focus error:', e);
             updateFirebaseStatusUI('error', 'Lokal (Offline)');
           }
-        }, 500);
+        }, 300);
       }
 
       let syncJournalsTimer = null;
@@ -5577,7 +5645,7 @@ ${rawText.slice(0, 25000)}
             console.warn('Sync journals error:', e);
             updateFirebaseStatusUI('error', 'Lokal (Offline)');
           }
-        }, 500);
+        }, 300);
       }
 
       let syncFlashcardsTimer = null;
@@ -5596,14 +5664,23 @@ ${rawText.slice(0, 25000)}
             console.warn('Sync flashcards error:', e);
             updateFirebaseStatusUI('error', 'Lokal (Offline)');
           }
-        }, 500);
+        }, 300);
       }
+
+      let unsubscribeSnapshot = null;
 
       async function initFirebaseCloudSync() {
         try {
+          if (unsubscribeSnapshot) {
+            unsubscribeSnapshot();
+            unsubscribeSnapshot = null;
+          }
+
           updateFirebaseStatusUI('syncing', 'Menghubungkan...');
-          const app = initializeApp(firebaseConfig);
-          db = getFirestore(app);
+          if (!db) {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+          }
           userDocRef = doc(db, 'productivity_users', currentUserId);
           isFirebaseReady = true;
 
@@ -5611,48 +5688,41 @@ ${rawText.slice(0, 25000)}
           const docSnap = await getDoc(userDocRef);
           if (docSnap.exists()) {
             const data = docSnap.data();
-            let cloudUpdated = false;
 
-            if (Array.isArray(data.tasks)) {
-              tasks = data.tasks;
-              localStorage.setItem('prod_hub_tasks', JSON.stringify(tasks));
-              renderTasks();
-              cloudUpdated = true;
-            }
+            // Gabungkan tugas lokal (misal yang baru ditambahkan di PC) dengan cloud
+            tasks = mergeById(tasks, data.tasks);
+            localStorage.setItem('prod_hub_tasks', JSON.stringify(tasks));
+            renderTasks();
 
             if (data.focus) {
-              if (typeof data.focus.completedSessions === 'number') {
-                completedSessions = data.focus.completedSessions;
-                localStorage.setItem('prod_focus_sessions', completedSessions);
-              }
-              if (typeof data.focus.totalMinutesFocused === 'number') {
-                totalMinutesFocused = data.focus.totalMinutesFocused;
-                localStorage.setItem('prod_focus_minutes', totalMinutesFocused);
-              }
+              completedSessions = Math.max(completedSessions, data.focus.completedSessions || 0);
+              totalMinutesFocused = Math.max(totalMinutesFocused, data.focus.totalMinutesFocused || 0);
+              localStorage.setItem('prod_focus_sessions', completedSessions);
+              localStorage.setItem('prod_focus_minutes', totalMinutesFocused);
               updateStatsUI();
-              cloudUpdated = true;
             }
 
-            if (Array.isArray(data.journals)) {
-              journalEntries = data.journals;
-              localStorage.setItem('prod_hub_journals', JSON.stringify(journalEntries));
-              renderJournals();
-              cloudUpdated = true;
-            }
+            journalEntries = mergeById(journalEntries, data.journals);
+            localStorage.setItem('prod_hub_journals', JSON.stringify(journalEntries));
+            renderJournals();
 
-            if (Array.isArray(data.flashcards)) {
-              fcSets = data.flashcards;
-              localStorage.setItem('prod_hub_flashcard_sets', JSON.stringify(fcSets));
-              renderFlashcardSetsList();
-              cloudUpdated = true;
-            }
+            fcSets = mergeById(fcSets, data.flashcards);
+            localStorage.setItem('prod_hub_flashcard_sets', JSON.stringify(fcSets));
+            renderFlashcardSetsList();
+
+            // Simpan hasil gabungan kembali ke cloud agar Firestore selalu memiliki data terlengkap
+            await setDoc(userDocRef, {
+              tasks,
+              focus: { completedSessions, totalMinutesFocused },
+              journals: journalEntries,
+              flashcards: fcSets,
+              updatedAt: serverTimestamp()
+            }, { merge: true });
 
             updateFirebaseStatusUI('connected', 'Cloud Aktif');
-            if (cloudUpdated) {
-              showToast('Data tersinkron dari Firebase Cloud! ☁️', '🔥');
-            }
+            showToast('Sinkronisasi Cloud Aktif! ✨', '🔥');
           } else {
-            // Inisialisasi cloud dengan data lokal saat ini
+            // Jika dokumen belum ada di Firestore, buat dokumen awal dengan data lokal saat ini
             await setDoc(userDocRef, {
               tasks: tasks || [],
               focus: {
@@ -5665,11 +5735,11 @@ ${rawText.slice(0, 25000)}
               updatedAt: serverTimestamp()
             });
             updateFirebaseStatusUI('connected', 'Cloud Aktif');
-            showToast('Firebase Cloud terhubung! ✨', '🔥');
+            showToast('Cloud Firestore Terhubung! ✨', '🔥');
           }
 
-          // 2. Real-time update listener
-          onSnapshot(userDocRef, (snap) => {
+          // 2. Real-time update listener (otomatis memicu HP/PC saat ada perubahan di salah satu perangkat)
+          unsubscribeSnapshot = onSnapshot(userDocRef, (snap) => {
             if (!snap.exists() || snap.metadata.hasPendingWrites) return;
             const remoteData = snap.data();
             if (remoteData.tasks && JSON.stringify(remoteData.tasks) !== JSON.stringify(tasks)) {

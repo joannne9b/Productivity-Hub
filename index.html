@@ -219,6 +219,37 @@
       flex-shrink: 0;
     }
 
+    .firebase-sync-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, rgba(81, 70, 58, 0.8), rgba(136, 121, 104, 0.6));
+      border: 1px solid rgba(244, 211, 137, 0.3);
+      padding: 6px 10px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--color-gold);
+      white-space: nowrap;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: var(--transition-smooth);
+    }
+
+    .firebase-sync-badge:hover {
+      border-color: var(--color-gold);
+      transform: translateY(-1px);
+    }
+
+    .firebase-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #f59e0b;
+      box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+      transition: all 0.3s ease;
+    }
+
     /* ==========================================================================
        4. SCROLLABLE TAB CONTENT (NO HORIZONTAL OVERFLOW)
        ========================================================================== */
@@ -1892,12 +1923,19 @@
           </div>
         </div>
 
-        <div class="streak-badge" title="Runtutan Hari Fokus">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M12 23c4.97 0 9-4.03 9-9 0-4.08-2.67-7.55-6.42-8.68-.48-.14-.95.2-.95.7v1.83c0 .32-.2.6-.5.7-1.39.46-2.4 1.76-2.4 3.32 0 1.25.66 2.34 1.66 2.95.34.2.49.62.33.99-.21.5-.78.78-1.29.62A5.47 5.47 0 0 1 8 12.87c0-2.31 1.43-4.3 3.49-5.07.45-.17.69-.66.54-1.11A9.034 9.034 0 0 0 3 14c0 4.97 4.03 9 9 9z" />
-          </svg>
-          <span id="streakCount">5 Hari Streak</span>
+        <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+          <div class="firebase-sync-badge" id="firebaseSyncBadge" title="Klik untuk cek / salin ID Sync Firebase Cloud">
+            <span class="firebase-dot" id="firebaseDot"></span>
+            <span id="firebaseStatusText">Firebase</span>
+          </div>
+
+          <div class="streak-badge" title="Runtutan Hari Fokus">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 23c4.97 0 9-4.03 9-9 0-4.08-2.67-7.55-6.42-8.68-.48-.14-.95.2-.95.7v1.83c0 .32-.2.6-.5.7-1.39.46-2.4 1.76-2.4 3.32 0 1.25.66 2.34 1.66 2.95.34.2.49.62.33.99-.21.5-.78.78-1.29.62A5.47 5.47 0 0 1 8 12.87c0-2.31 1.43-4.3 3.49-5.07.45-.17.69-.66.54-1.11A9.034 9.034 0 0 0 3 14c0 4.97 4.03 9 9 9z" />
+            </svg>
+            <span id="streakCount">5 Hari Streak</span>
+          </div>
         </div>
       </div>
     </header>
@@ -2804,9 +2842,40 @@
   </div>
 
   <!-- ==========================================================
-       VANILLA JAVASCRIPT LOGIC
+       VANILLA JAVASCRIPT LOGIC & FIREBASE CLOUD SYNC
        ========================================================== -->
-  <script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { 
+      getFirestore, 
+      doc, 
+      setDoc, 
+      getDoc, 
+      onSnapshot, 
+      serverTimestamp 
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyC3HYzixVKwBkN1NuQUg_5eM5rUcZ08lnQ",
+      authDomain: "productivity-hub-de483.firebaseapp.com",
+      projectId: "productivity-hub-de483",
+      storageBucket: "productivity-hub-de483.firebasestorage.app",
+      messagingSenderId: "1031377421528",
+      appId: "1:1031377421528:web:5e433a85959404a65043ad"
+    };
+
+    let db = null;
+    let userDocRef = null;
+    let isFirebaseReady = false;
+
+    // Unique user ID in localStorage
+    let currentUserId = localStorage.getItem('prodhub_user_uid');
+    if (!currentUserId) {
+      currentUserId = 'user_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+      localStorage.setItem('prodhub_user_uid', currentUserId);
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
 
       /* --------------------------------------------------------
@@ -2966,6 +3035,7 @@
 
       function saveAndRenderTasks() {
         localStorage.setItem('prod_hub_tasks', JSON.stringify(tasks));
+        syncTasksToFirebase(tasks);
         renderTasks();
       }
 
@@ -3268,6 +3338,7 @@
               totalMinutesFocused += focusDurationMins;
               localStorage.setItem('prod_focus_sessions', completedSessions);
               localStorage.setItem('prod_focus_minutes', totalMinutesFocused);
+              syncFocusToFirebase(completedSessions, totalMinutesFocused);
               updateStatsUI();
               reflectionModal.classList.add('active');
             } else {
@@ -3619,6 +3690,7 @@
       window.deleteJournal = function (id) {
         journalEntries = journalEntries.filter(j => j.id !== id);
         localStorage.setItem('prod_hub_journals', JSON.stringify(journalEntries));
+        syncJournalsToFirebase(journalEntries);
         renderJournals();
         showToast('Catatan refleksi dihapus', '🗑️');
       };
@@ -3644,6 +3716,7 @@
           });
 
           localStorage.setItem('prod_hub_journals', JSON.stringify(journalEntries));
+          syncJournalsToFirebase(journalEntries);
           journalContentInput.value = '';
           if (journalDateInput) {
             journalDateInput.value = getFormattedToday();
@@ -5129,6 +5202,7 @@ ${rawText.slice(0, 25000)}
 
         fcSets.unshift(finalSet);
         localStorage.setItem('prod_hub_flashcard_sets', JSON.stringify(fcSets));
+        syncFlashcardsToFirebase(fcSets);
 
         playAudioFeedback('correct');
         showToast(`Set "${finalSet.title}" berhasil disimpan! 💾`, '🎉');
@@ -5218,6 +5292,7 @@ ${rawText.slice(0, 25000)}
             if (confirmed) {
               fcSets = fcSets.filter(s => s.id !== set.id);
               localStorage.setItem('prod_hub_flashcard_sets', JSON.stringify(fcSets));
+              syncFlashcardsToFirebase(fcSets);
               renderFlashcardSetsList();
               showToast('Set flashcard berhasil dihapus', '🗑️');
             }
@@ -5403,6 +5478,241 @@ ${rawText.slice(0, 25000)}
 
       // Inisialisasi tampilan pertama
       renderFlashcardSetsList();
+
+      /* --------------------------------------------------------
+         FIREBASE CLOUD SYNC INITIALIZATION & HELPERS
+         -------------------------------------------------------- */
+      const firebaseSyncBadge = document.getElementById('firebaseSyncBadge');
+      const firebaseDot = document.getElementById('firebaseDot');
+      const firebaseStatusText = document.getElementById('firebaseStatusText');
+
+      function updateFirebaseStatusUI(status, label) {
+        if (!firebaseDot || !firebaseStatusText) return;
+        if (status === 'connected') {
+          firebaseDot.style.background = '#10b981';
+          firebaseDot.style.boxShadow = '0 0 6px rgba(16, 185, 129, 0.7)';
+          firebaseStatusText.textContent = label || 'Cloud Aktif';
+        } else if (status === 'syncing') {
+          firebaseDot.style.background = '#f59e0b';
+          firebaseDot.style.boxShadow = '0 0 6px rgba(245, 158, 11, 0.7)';
+          firebaseStatusText.textContent = label || 'Sinkronisasi...';
+        } else if (status === 'error') {
+          firebaseDot.style.background = '#ef4444';
+          firebaseDot.style.boxShadow = '0 0 6px rgba(239, 68, 68, 0.7)';
+          firebaseStatusText.textContent = label || 'Offline (Lokal)';
+        }
+      }
+
+      if (firebaseSyncBadge) {
+        firebaseSyncBadge.addEventListener('click', async () => {
+          const action = await showInAppConfirm({
+            title: 'Firebase Cloud Sync',
+            message: `ID Sync Perangkat: ${currentUserId}\n\nData tersinkron otomatis ke Firebase Cloud Firestore. Klik Salin ID untuk menghubungkan antar perangkat.`,
+            icon: '🔥',
+            okText: 'Salin ID',
+            cancelText: 'Tutup'
+          });
+          if (action && navigator.clipboard) {
+            navigator.clipboard.writeText(currentUserId).then(() => {
+              showToast(`ID Sync disalin: ${currentUserId} 📋`, '✨');
+            }).catch(() => {
+              showToast(`ID Sync Anda: ${currentUserId}`, 'ℹ️');
+            });
+          }
+        });
+      }
+
+      // Debounced Cloud Sync Functions
+      let syncTasksTimer = null;
+      function syncTasksToFirebase(updatedTasks) {
+        if (!isFirebaseReady || !userDocRef) return;
+        if (syncTasksTimer) clearTimeout(syncTasksTimer);
+        updateFirebaseStatusUI('syncing', 'Menyimpan...');
+        syncTasksTimer = setTimeout(async () => {
+          try {
+            await setDoc(userDocRef, {
+              tasks: updatedTasks,
+              updatedAt: serverTimestamp()
+            }, { merge: true });
+            updateFirebaseStatusUI('connected', 'Cloud Aktif');
+          } catch (e) {
+            console.warn('Sync tasks error:', e);
+            updateFirebaseStatusUI('error', 'Lokal (Offline)');
+          }
+        }, 500);
+      }
+
+      let syncFocusTimer = null;
+      function syncFocusToFirebase(sessions, minutes) {
+        if (!isFirebaseReady || !userDocRef) return;
+        if (syncFocusTimer) clearTimeout(syncFocusTimer);
+        updateFirebaseStatusUI('syncing', 'Menyimpan...');
+        syncFocusTimer = setTimeout(async () => {
+          try {
+            await setDoc(userDocRef, {
+              focus: { completedSessions: sessions, totalMinutesFocused: minutes },
+              updatedAt: serverTimestamp()
+            }, { merge: true });
+            updateFirebaseStatusUI('connected', 'Cloud Aktif');
+          } catch (e) {
+            console.warn('Sync focus error:', e);
+            updateFirebaseStatusUI('error', 'Lokal (Offline)');
+          }
+        }, 500);
+      }
+
+      let syncJournalsTimer = null;
+      function syncJournalsToFirebase(updatedJournals) {
+        if (!isFirebaseReady || !userDocRef) return;
+        if (syncJournalsTimer) clearTimeout(syncJournalsTimer);
+        updateFirebaseStatusUI('syncing', 'Menyimpan...');
+        syncJournalsTimer = setTimeout(async () => {
+          try {
+            await setDoc(userDocRef, {
+              journals: updatedJournals,
+              updatedAt: serverTimestamp()
+            }, { merge: true });
+            updateFirebaseStatusUI('connected', 'Cloud Aktif');
+          } catch (e) {
+            console.warn('Sync journals error:', e);
+            updateFirebaseStatusUI('error', 'Lokal (Offline)');
+          }
+        }, 500);
+      }
+
+      let syncFlashcardsTimer = null;
+      function syncFlashcardsToFirebase(updatedFlashcards) {
+        if (!isFirebaseReady || !userDocRef) return;
+        if (syncFlashcardsTimer) clearTimeout(syncFlashcardsTimer);
+        updateFirebaseStatusUI('syncing', 'Menyimpan...');
+        syncFlashcardsTimer = setTimeout(async () => {
+          try {
+            await setDoc(userDocRef, {
+              flashcards: updatedFlashcards,
+              updatedAt: serverTimestamp()
+            }, { merge: true });
+            updateFirebaseStatusUI('connected', 'Cloud Aktif');
+          } catch (e) {
+            console.warn('Sync flashcards error:', e);
+            updateFirebaseStatusUI('error', 'Lokal (Offline)');
+          }
+        }, 500);
+      }
+
+      async function initFirebaseCloudSync() {
+        try {
+          updateFirebaseStatusUI('syncing', 'Menghubungkan...');
+          const app = initializeApp(firebaseConfig);
+          db = getFirestore(app);
+          userDocRef = doc(db, 'productivity_users', currentUserId);
+          isFirebaseReady = true;
+
+          // 1. Ambil data tersimpan dari Firestore
+          const docSnap = await getDoc(userDocRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            let cloudUpdated = false;
+
+            if (Array.isArray(data.tasks)) {
+              tasks = data.tasks;
+              localStorage.setItem('prod_hub_tasks', JSON.stringify(tasks));
+              renderTasks();
+              cloudUpdated = true;
+            }
+
+            if (data.focus) {
+              if (typeof data.focus.completedSessions === 'number') {
+                completedSessions = data.focus.completedSessions;
+                localStorage.setItem('prod_focus_sessions', completedSessions);
+              }
+              if (typeof data.focus.totalMinutesFocused === 'number') {
+                totalMinutesFocused = data.focus.totalMinutesFocused;
+                localStorage.setItem('prod_focus_minutes', totalMinutesFocused);
+              }
+              updateStatsUI();
+              cloudUpdated = true;
+            }
+
+            if (Array.isArray(data.journals)) {
+              journalEntries = data.journals;
+              localStorage.setItem('prod_hub_journals', JSON.stringify(journalEntries));
+              renderJournals();
+              cloudUpdated = true;
+            }
+
+            if (Array.isArray(data.flashcards)) {
+              fcSets = data.flashcards;
+              localStorage.setItem('prod_hub_flashcard_sets', JSON.stringify(fcSets));
+              renderFlashcardSetsList();
+              cloudUpdated = true;
+            }
+
+            updateFirebaseStatusUI('connected', 'Cloud Aktif');
+            if (cloudUpdated) {
+              showToast('Data tersinkron dari Firebase Cloud! ☁️', '🔥');
+            }
+          } else {
+            // Inisialisasi cloud dengan data lokal saat ini
+            await setDoc(userDocRef, {
+              tasks: tasks || [],
+              focus: {
+                completedSessions: completedSessions || 0,
+                totalMinutesFocused: totalMinutesFocused || 0
+              },
+              journals: journalEntries || [],
+              flashcards: fcSets || [],
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+            updateFirebaseStatusUI('connected', 'Cloud Aktif');
+            showToast('Firebase Cloud terhubung! ✨', '🔥');
+          }
+
+          // 2. Real-time update listener
+          onSnapshot(userDocRef, (snap) => {
+            if (!snap.exists() || snap.metadata.hasPendingWrites) return;
+            const remoteData = snap.data();
+            if (remoteData.tasks && JSON.stringify(remoteData.tasks) !== JSON.stringify(tasks)) {
+              tasks = remoteData.tasks;
+              localStorage.setItem('prod_hub_tasks', JSON.stringify(tasks));
+              renderTasks();
+            }
+            if (remoteData.focus) {
+              let focusChanged = false;
+              if (typeof remoteData.focus.completedSessions === 'number' && remoteData.focus.completedSessions !== completedSessions) {
+                completedSessions = remoteData.focus.completedSessions;
+                localStorage.setItem('prod_focus_sessions', completedSessions);
+                focusChanged = true;
+              }
+              if (typeof remoteData.focus.totalMinutesFocused === 'number' && remoteData.focus.totalMinutesFocused !== totalMinutesFocused) {
+                totalMinutesFocused = remoteData.focus.totalMinutesFocused;
+                localStorage.setItem('prod_focus_minutes', totalMinutesFocused);
+                focusChanged = true;
+              }
+              if (focusChanged) updateStatsUI();
+            }
+            if (remoteData.journals && JSON.stringify(remoteData.journals) !== JSON.stringify(journalEntries)) {
+              journalEntries = remoteData.journals;
+              localStorage.setItem('prod_hub_journals', JSON.stringify(journalEntries));
+              renderJournals();
+            }
+            if (remoteData.flashcards && JSON.stringify(remoteData.flashcards) !== JSON.stringify(fcSets)) {
+              fcSets = remoteData.flashcards;
+              localStorage.setItem('prod_hub_flashcard_sets', JSON.stringify(fcSets));
+              renderFlashcardSetsList();
+            }
+          }, (err) => {
+            console.warn('Firebase snapshot status:', err);
+          });
+
+        } catch (err) {
+          console.warn('Firebase init warning:', err);
+          updateFirebaseStatusUI('error', 'Lokal (Offline)');
+        }
+      }
+
+      // Mulai inisialisasi sinkronisasi Firebase Cloud
+      initFirebaseCloudSync();
 
       // Kuis Kilat dinonaktifkan sesuai permintaan pengguna (hanya fokus unggah materi & belajar)
 
